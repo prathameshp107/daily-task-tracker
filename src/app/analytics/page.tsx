@@ -4,81 +4,98 @@ import { Navbar } from "@/components/navbar";
 import { ProductivityMetrics } from "@/components/analytics/productivity-metrics";
 import { ProductivityTrends } from "@/components/analytics/productivity-trends";
 import { useProductivityMetrics } from "@/hooks/useProductivityMetrics";
-import { getLastNMonths } from "@/lib/analytics/date-utils";
+import { format } from "date-fns";
+import { testTasks, testLeaves } from "@/lib/analytics/test-data";
 
-// Generate mock data for the last 6 months
-const generateMockTasks = (): Array<{
-  taskId: string;
-  taskType: string;
-  description: string;
-  totalHours: number;
-  approvedHours: number;
-  project: string;
-  month: string;
-  note: string;
-  status: 'todo' | 'in-progress' | 'done';
-  completed: boolean;
-}> => {
-  const months = getLastNMonths(6);
-  const taskTypes = ["Development", "Bug Fix", "Design", "Testing", "Documentation"];
-  const projects = ["Project Alpha", "Project Beta", "Project Gamma"];
-  
-  const tasks = [];
-  let taskId = 1;
-  
-  for (const { month, monthName, year } of months) {
-    const tasksThisMonth = 3 + Math.floor(Math.random() * 5); // 3-7 tasks per month
+// Format test data to match the expected format
+const formatTestData = () => {
+  try {
+    const currentMonth = format(new Date(), 'MMMM');
+    console.log('Current month:', currentMonth);
     
-    for (let i = 0; i < tasksThisMonth; i++) {
-      const totalHours = 2 + Math.floor(Math.random() * 30); // 2-32 hours per task
-      const completed = Math.random() > 0.3; // 70% chance of being completed
-      const status: 'todo' | 'in-progress' | 'done' = completed ? 'done' : 
-                    Math.random() > 0.5 ? 'in-progress' : 'todo';
+    // Get current month's tasks (case-insensitive comparison)
+    const currentMonthTasks = testTasks.filter(task => 
+      task.month.toLowerCase() === currentMonth.toLowerCase()
+    );
+    
+    console.log('Total test tasks:', testTasks.length);
+    console.log('Current month tasks:', currentMonthTasks.length);
+    console.log('Test leaves:', testLeaves.length);
+
+    // Generate trend data for the last 6 months
+    const months = [];
+    const currentDate = new Date();
+    
+    for (let i = 5; i >= 0; i--) {
+      const date = new Date(currentDate.getFullYear(), currentDate.getMonth() - i, 1);
+      const monthName = format(date, 'MMMM');
       
-      tasks.push({
-        taskId: `TASK-${String(taskId).padStart(3, '0')}`,
-        taskType: taskTypes[Math.floor(Math.random() * taskTypes.length)],
-        description: `Task description ${taskId}`,
-        totalHours: completed ? totalHours : Math.floor(totalHours * (0.3 + Math.random() * 0.7)),
-        approvedHours: completed ? totalHours * (0.8 + Math.random() * 0.4) : 0,
-        project: projects[Math.floor(Math.random() * projects.length)],
-        month: monthName,
-        note: "",
-        status,
-        completed
+      // Filter tasks for this month (case-insensitive comparison)
+      const monthTasks = testTasks.filter(task => 
+        task.month.toLowerCase() === monthName.toLowerCase()
+      );
+      
+      // Filter leaves for this month
+      const monthLeaves = testLeaves.filter(leave => {
+        try {
+          const leaveDate = new Date(leave);
+          return format(leaveDate, 'MMMM').toLowerCase() === monthName.toLowerCase();
+        } catch (error) {
+          console.error('Error parsing leave date:', leave, error);
+          return false;
+        }
       });
       
-      taskId++;
+      const totalHours = monthTasks.reduce((sum, task) => sum + (task.totalHours || 0), 0);
+      const approvedHours = monthTasks.reduce((sum, task) => sum + (task.approvedHours || 0), 0);
+      const workingDays = 20 + (i % 3); // Vary working days slightly
+      
+      // Calculate productivity (0-1 scale)
+      const workDays = Math.min(totalHours / 8, workingDays);
+      const productivity = workingDays > 0 ? Math.min(1, (workDays - monthLeaves.length) / workingDays) : 0;
+      
+      months.push({
+        month: monthName,
+        productivity: Math.max(0, productivity),
+        workingDays,
+        workDays: Math.min(Math.floor(totalHours / 8), workingDays - monthLeaves.length),
+        workingHours: totalHours,
+        leaves: monthLeaves.length
+      });
+      
+      console.log(`Month ${monthName}:`, {
+        tasks: monthTasks.length,
+        leaves: monthLeaves.length,
+        totalHours,
+        workDays: Math.min(Math.floor(totalHours / 8), workingDays - monthLeaves.length),
+        productivity: Math.max(0, productivity)
+      });
     }
-  }
-  
-  return tasks;
-};
-
-// Mock productivity trend data
-const generateMockTrends = () => {
-  const months = getLastNMonths(6);
-  return months.map(({ monthName, month, year }) => {
-    const workingDays = 20 + Math.floor(Math.random() * 5); // 20-24 working days
-    const workDays = 10 + Math.floor(Math.random() * (workingDays - 5)); // 10 to workingDays-5 work days
-    const productivity = workDays / workingDays;
     
-    return {
-      month: `${monthName} '${String(year).slice(-2)}`,
-      productivity: Math.min(1, productivity * (0.8 + Math.random() * 0.4)), // Add some variance
-      workingDays,
-      workDays: workDays * (0.8 + Math.random() * 0.4) // Add some variance
+    return { 
+      tasks: currentMonthTasks, 
+      trends: months 
     };
-  });
+  } catch (error) {
+    console.error('Error in formatTestData:', error);
+    return { tasks: [], trends: [] };
+  }
 };
 
-const mockTasks = generateMockTasks();
-const mockTrends = generateMockTrends();
+// Get test data
+const { tasks: mockTasks, trends: mockTrends } = formatTestData();
 
 export default function AnalyticsPage() {
-  const metrics = useProductivityMetrics(mockTasks);
+  try {
+    console.log('Rendering AnalyticsPage with mock data:', {
+      taskCount: mockTasks.length,
+      trendCount: mockTrends.length
+    });
+    
+    const metrics = useProductivityMetrics(mockTasks);
+    console.log('Calculated metrics:', metrics);
 
-  return (
+    return (
     <div className="min-h-screen flex flex-col">
       <Navbar />
       
@@ -109,4 +126,25 @@ export default function AnalyticsPage() {
       </main>
     </div>
   );
+  } catch (error) {
+    console.error('Error in AnalyticsPage:', error);
+    return (
+      <div className="min-h-screen flex flex-col">
+        <Navbar />
+        <main className="flex-1 bg-gray-50 dark:bg-gray-900 p-8">
+          <div className="max-w-7xl mx-auto">
+            <h1 className="text-2xl font-bold text-red-600 dark:text-red-400 mb-4">
+              Error Loading Analytics
+            </h1>
+            <p className="text-gray-700 dark:text-gray-300">
+              There was an error loading the analytics data. Please check the console for more details.
+            </p>
+            <pre className="mt-4 p-4 bg-gray-100 dark:bg-gray-800 rounded-md text-xs overflow-x-auto">
+              {error instanceof Error ? error.message : 'Unknown error occurred'}
+            </pre>
+          </div>
+        </main>
+      </div>
+    );
+  }
 }

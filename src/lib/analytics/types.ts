@@ -7,7 +7,8 @@ export interface Task {
   totalHours: number;
   approvedHours: number;
   project: string;
-  month: string;
+  month: string;  // Full month name (e.g., 'July')
+  monthKey?: string; // YYYY-MM format for easier filtering (e.g., '2025-07')
   note?: string;
   status: 'todo' | 'in-progress' | 'done';
   completed: boolean;
