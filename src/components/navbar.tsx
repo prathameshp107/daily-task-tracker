@@ -1,9 +1,11 @@
 "use client";
 
 import { useState } from "react";
+import { usePathname } from "next/navigation";
+import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { ThemeToggle } from "@/components/theme-toggle";
-import { Bell, Plus, Settings, User, LogOut, ChevronDown } from "lucide-react";
+import { Bell, Plus, Settings, User, LogOut, ChevronDown, BarChart3, Home } from "lucide-react";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -16,17 +18,44 @@ import { Badge } from "@/components/ui/badge";
 
 export function Navbar() {
   const [notifications, setNotifications] = useState(3); // Example notification count
+  const pathname = usePathname();
 
   return (
     <nav className="sticky top-0 z-50 h-16 flex items-center justify-between px-6 bg-white/80 dark:bg-gray-900/80 backdrop-blur-sm border-b border-gray-200 dark:border-gray-700">
-      <div className="flex items-center gap-2">
-        <div className="text-2xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
-          TaskFlow
+      <div className="flex items-center gap-6">
+        <div className="flex items-center gap-2">
+          <Link href="/" className="text-2xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
+            TaskFlow
+          </Link>
+          <Badge variant="outline" className="hidden md:flex items-center gap-1 border-blue-200 dark:border-blue-900 text-blue-600 dark:text-blue-400">
+            <span className="h-2 w-2 rounded-full bg-blue-500"></span>
+            Active
+          </Badge>
         </div>
-        <Badge variant="outline" className="hidden md:flex items-center gap-1 border-blue-200 dark:border-blue-900 text-blue-600 dark:text-blue-400">
-          <span className="h-2 w-2 rounded-full bg-blue-500"></span>
-          Active
-        </Badge>
+        
+        {/* Navigation Links */}
+        <div className="hidden md:flex items-center gap-1">
+          <Link href="/">
+            <Button 
+              variant={pathname === "/" ? "default" : "ghost"} 
+              size="sm"
+              className="flex items-center gap-2"
+            >
+              <Home className="h-4 w-4" />
+              Tasks
+            </Button>
+          </Link>
+          <Link href="/analytics">
+            <Button 
+              variant={pathname === "/analytics" ? "default" : "ghost"} 
+              size="sm"
+              className="flex items-center gap-2"
+            >
+              <BarChart3 className="h-4 w-4" />
+              Analytics
+            </Button>
+          </Link>
+        </div>
       </div>
       
       <div className="flex items-center gap-4">
