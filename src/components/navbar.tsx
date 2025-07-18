@@ -16,11 +16,17 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
+import { useAuth, useUserProfile, useLogout } from "@/contexts";
 
 export function Navbar() {
   const [notifications, setNotifications] = useState(3);
   const [scrolled, setScrolled] = useState(false);
   const pathname = usePathname();
+  
+  // Authentication hooks
+  const { isAuthenticated } = useAuth();
+  const { displayName, initials, user } = useUserProfile();
+  const { logout } = useLogout();
 
   useEffect(() => {
     const handleScroll = () => {
@@ -54,39 +60,41 @@ export function Navbar() {
           </Badge>
         </div>
         
-        {/* Desktop Navigation */}
-        <div className="hidden md:flex items-center gap-1">
-          <Link href="/">
-            <Button 
-              variant={pathname === "/" ? "default" : "ghost"} 
-              size="sm"
-              className="flex items-center gap-2 px-3 py-1.5 h-9 transition-all hover:scale-[1.02]"
-            >
-              <Home className="h-4 w-4" />
-              <span className="font-medium">Tasks</span>
-            </Button>
-          </Link>
-          <Link href="/analytics">
-            <Button 
-              variant={pathname === "/analytics" ? "default" : "ghost"} 
-              size="sm"
-              className="flex items-center gap-2 px-3 py-1.5 h-9 transition-all hover:scale-[1.02]"
-            >
-              <BarChart3 className="h-4 w-4" />
-              <span className="font-medium">Analytics</span>
-            </Button>
-          </Link>
-          <Link href="/settings">
-            <Button 
-              variant={pathname.startsWith("/settings") ? "default" : "ghost"} 
-              size="sm"
-              className="flex items-center gap-2 px-3 py-1.5 h-9 transition-all hover:scale-[1.02]"
-            >
-              <SettingsIcon className="h-4 w-4" />
-              <span className="font-medium">Settings</span>
-            </Button>
-          </Link>
-        </div>
+        {/* Desktop Navigation - Only show if authenticated */}
+        {isAuthenticated && (
+          <div className="hidden md:flex items-center gap-1">
+            <Link href="/dashboard">
+              <Button 
+                variant={pathname === "/dashboard" ? "default" : "ghost"} 
+                size="sm"
+                className="flex items-center gap-2 px-3 py-1.5 h-9 transition-all hover:scale-[1.02]"
+              >
+                <Home className="h-4 w-4" />
+                <span className="font-medium">Tasks</span>
+              </Button>
+            </Link>
+            <Link href="/analytics">
+              <Button 
+                variant={pathname === "/analytics" ? "default" : "ghost"} 
+                size="sm"
+                className="flex items-center gap-2 px-3 py-1.5 h-9 transition-all hover:scale-[1.02]"
+              >
+                <BarChart3 className="h-4 w-4" />
+                <span className="font-medium">Analytics</span>
+              </Button>
+            </Link>
+            <Link href="/settings">
+              <Button 
+                variant={pathname.startsWith("/settings") ? "default" : "ghost"} 
+                size="sm"
+                className="flex items-center gap-2 px-3 py-1.5 h-9 transition-all hover:scale-[1.02]"
+              >
+                <SettingsIcon className="h-4 w-4" />
+                <span className="font-medium">Settings</span>
+              </Button>
+            </Link>
+          </div>
+        )}
       </div>
       
       <div className="flex items-center gap-2 sm:gap-4">
@@ -106,47 +114,52 @@ export function Navbar() {
         
         <ThemeToggle />
         
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button 
-              variant="outline" 
-              className="gap-2 pl-3 pr-2 h-9 transition-all hover:shadow-sm"
+        {isAuthenticated && (
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button 
+                variant="outline" 
+                className="gap-2 pl-3 pr-2 h-9 transition-all hover:shadow-sm"
+              >
+                <div className="h-6 w-6 rounded-full bg-gradient-to-br from-blue-500 to-purple-500 flex items-center justify-center text-white text-xs font-medium">
+                  {initials}
+                </div>
+                <span className="hidden sm:inline text-sm font-medium">{displayName}</span>
+                <ChevronDown className="h-4 w-4 opacity-60" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent 
+              className="w-56 p-2 rounded-lg shadow-lg border border-gray-200 dark:border-gray-800 bg-white/95 dark:bg-gray-900/95 backdrop-blur-md" 
+              align="end"
             >
-              <div className="h-6 w-6 rounded-full bg-gradient-to-br from-blue-500 to-purple-500 flex items-center justify-center text-white text-xs font-medium">
-                JD
-              </div>
-              <span className="hidden sm:inline text-sm font-medium">John</span>
-              <ChevronDown className="h-4 w-4 opacity-60" />
-            </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent 
-            className="w-56 p-2 rounded-lg shadow-lg border border-gray-200 dark:border-gray-800 bg-white/95 dark:bg-gray-900/95 backdrop-blur-md" 
-            align="end"
-          >
-            <DropdownMenuLabel className="px-2 py-1.5">
-              <div className="flex flex-col space-y-0.5">
-                <p className="text-sm font-medium">John Doe</p>
-                <p className="text-xs text-muted-foreground truncate">
-                  john.doe@example.com
-                </p>
-              </div>
-            </DropdownMenuLabel>
-            <DropdownMenuSeparator className="my-1" />
-            <DropdownMenuItem className="px-2 py-1.5 rounded-md text-sm cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors">
-              <User className="mr-2 h-4 w-4 opacity-70" />
-              <span>Profile</span>
-            </DropdownMenuItem>
-            <DropdownMenuItem className="px-2 py-1.5 rounded-md text-sm cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors">
-              <Settings className="mr-2 h-4 w-4 opacity-70" />
-              <span>Settings</span>
-            </DropdownMenuItem>
-            <DropdownMenuSeparator className="my-1" />
-            <DropdownMenuItem className="px-2 py-1.5 rounded-md text-sm cursor-pointer text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors">
-              <LogOut className="mr-2 h-4 w-4 opacity-70" />
-              <span>Log out</span>
-            </DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
+              <DropdownMenuLabel className="px-2 py-1.5">
+                <div className="flex flex-col space-y-0.5">
+                  <p className="text-sm font-medium">{user?.name || displayName}</p>
+                  <p className="text-xs text-muted-foreground truncate">
+                    {user?.email}
+                  </p>
+                </div>
+              </DropdownMenuLabel>
+              <DropdownMenuSeparator className="my-1" />
+              <DropdownMenuItem className="px-2 py-1.5 rounded-md text-sm cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors">
+                <User className="mr-2 h-4 w-4 opacity-70" />
+                <span>Profile</span>
+              </DropdownMenuItem>
+              <DropdownMenuItem className="px-2 py-1.5 rounded-md text-sm cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors">
+                <Settings className="mr-2 h-4 w-4 opacity-70" />
+                <span>Settings</span>
+              </DropdownMenuItem>
+              <DropdownMenuSeparator className="my-1" />
+              <DropdownMenuItem 
+                className="px-2 py-1.5 rounded-md text-sm cursor-pointer text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
+                onClick={logout}
+              >
+                <LogOut className="mr-2 h-4 w-4 opacity-70" />
+                <span>Log out</span>
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        )}
       </div>
     </nav>
   );

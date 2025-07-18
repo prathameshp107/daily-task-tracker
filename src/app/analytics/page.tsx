@@ -1,5 +1,6 @@
 "use client";
 
+import { ProtectedRoute } from "@/components/auth";
 import { Navbar } from "@/components/navbar";
 import { ProductivityMetrics } from "@/components/analytics/productivity-metrics";
 import { ProductivityTrends } from "@/components/analytics/productivity-trends";
@@ -86,65 +87,73 @@ const formatTestData = () => {
 const { tasks: mockTasks, trends: mockTrends } = formatTestData();
 
 export default function AnalyticsPage() {
-  try {
-    console.log('Rendering AnalyticsPage with mock data:', {
-      taskCount: mockTasks.length,
-      trendCount: mockTrends.length
-    });
-    
-    const metrics = useProductivityMetrics(mockTasks);
-    console.log('Calculated metrics:', metrics);
-
-    return (
-    <div className="min-h-screen flex flex-col">
-      <Navbar />
+  const AnalyticsContent = () => {
+    try {
+      console.log('Rendering AnalyticsPage with mock data:', {
+        taskCount: mockTasks.length,
+        trendCount: mockTrends.length
+      });
       
-      <main className="flex-1 bg-gray-50 dark:bg-gray-900 p-4 md:p-8">
-        <div className="max-w-7xl mx-auto space-y-8">
-          <div>
-            <h1 className="text-3xl font-bold text-gray-900 dark:text-white">
-              Productivity Analytics
-            </h1>
-            <p className="mt-2 text-gray-600 dark:text-gray-400">
-              Track your productivity metrics and performance
-            </p>
-          </div>
+      const metrics = useProductivityMetrics(mockTasks);
+      console.log('Calculated metrics:', metrics);
+
+      return (
+        <div className="min-h-screen flex flex-col">
+          <Navbar />
           
-          <ProductivityMetrics 
-            totalTasks={metrics.totalTasks}
-            totalApprovedHours={metrics.totalApprovedHours}
-            totalWorkingDays={metrics.totalWorkingDays}
-            totalWorkingHours={metrics.totalWorkingHours}
-            totalLeaves={metrics.totalLeaves}
-            productivity={metrics.productivity}
-            month={metrics.month}
-            year={metrics.year}
-          />
-          
-          <ProductivityTrends data={mockTrends} />
+          <main className="flex-1 bg-gray-50 dark:bg-gray-900 p-4 md:p-8">
+            <div className="max-w-7xl mx-auto space-y-8">
+              <div>
+                <h1 className="text-3xl font-bold text-gray-900 dark:text-white">
+                  Productivity Analytics
+                </h1>
+                <p className="mt-2 text-gray-600 dark:text-gray-400">
+                  Track your productivity metrics and performance
+                </p>
+              </div>
+              
+              <ProductivityMetrics 
+                totalTasks={metrics.totalTasks}
+                totalApprovedHours={metrics.totalApprovedHours}
+                totalWorkingDays={metrics.totalWorkingDays}
+                totalWorkingHours={metrics.totalWorkingHours}
+                totalLeaves={metrics.totalLeaves}
+                productivity={metrics.productivity}
+                month={metrics.month}
+                year={metrics.year}
+              />
+              
+              <ProductivityTrends data={mockTrends} />
+            </div>
+          </main>
         </div>
-      </main>
-    </div>
-  );
-  } catch (error) {
-    console.error('Error in AnalyticsPage:', error);
-    return (
-      <div className="min-h-screen flex flex-col">
-        <Navbar />
-        <main className="flex-1 bg-gray-50 dark:bg-gray-900 p-8">
-          <div className="max-w-7xl mx-auto">
-            <h1 className="text-2xl font-bold text-red-600 dark:text-red-400 mb-4">
-              Error Loading Analytics
-            </h1>
-            <p className="text-gray-700 dark:text-gray-300">
-              There was an error loading the analytics data. Please check the console for more details.
-            </p>
-            <pre className="mt-4 p-4 bg-gray-100 dark:bg-gray-800 rounded-md text-xs overflow-x-auto">
-              {error instanceof Error ? error.message : 'Unknown error occurred'}
-            </pre>
-          </div>
-        </main>
-      </div>
-    );
+      );
+    } catch (error) {
+      console.error('Error in AnalyticsPage:', error);
+      return (
+        <div className="min-h-screen flex flex-col">
+          <Navbar />
+          <main className="flex-1 bg-gray-50 dark:bg-gray-900 p-8">
+            <div className="max-w-7xl mx-auto">
+              <h1 className="text-2xl font-bold text-red-600 dark:text-red-400 mb-4">
+                Error Loading Analytics
+              </h1>
+              <p className="text-gray-700 dark:text-gray-300">
+                There was an error loading the analytics data. Please check the console for more details.
+              </p>
+              <pre className="mt-4 p-4 bg-gray-100 dark:bg-gray-800 rounded-md text-xs overflow-x-auto">
+                {error instanceof Error ? error.message : 'Unknown error occurred'}
+              </pre>
+            </div>
+          </main>
+        </div>
+      );
+    }
   }
+
+  return (
+    <ProtectedRoute>
+      <AnalyticsContent />
+    </ProtectedRoute>
+  )
 }
