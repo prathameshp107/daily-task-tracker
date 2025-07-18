@@ -210,60 +210,13 @@ export function ProjectToolsIntegration() {
 
                     <FormField
                       control={jiraForm.control}
-                      name="email"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Email</FormLabel>
-                          <FormControl>
-                            <Input 
-                              placeholder="your.email@example.com" 
-                              type="email"
-                              {...field} 
-                            />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-
-                    <FormField
-                      control={jiraForm.control}
-                      name="apiToken"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>API Token</FormLabel>
-                          <FormControl>
-                            <Input 
-                              type="password"
-                              placeholder="••••••••••••" 
-                              {...field} 
-                            />
-                          </FormControl>
-                          <FormDescription>
-                            <a 
-                              href="https://id.atlassian.com/manage-profile/security/api-tokens" 
-                              target="_blank" 
-                              rel="noopener noreferrer"
-                              className="text-blue-600 hover:underline flex items-center gap-1 text-sm"
-                            >
-                              Get your API token from Atlassian
-                              <ExternalLink className="h-3 w-3" />
-                            </a>
-                          </FormDescription>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-
-                    <FormField
-                      control={jiraForm.control}
                       name="projectKey"
                       render={({ field }) => (
                         <FormItem>
-                          <FormLabel>Project Key</FormLabel>
+                          <FormLabel>Project URL</FormLabel>
                           <FormControl>
                             <Input 
-                              placeholder="e.g., TASK" 
+                              placeholder="https://virtua-research.atlassian.net/jira/software/projects/IAC/boards/1" 
                               {...field} 
                             />
                           </FormControl>
@@ -272,37 +225,9 @@ export function ProjectToolsIntegration() {
                       )}
                     />
 
-                    <FormField
-                      control={jiraForm.control}
-                      name="syncEnabled"
-                      render={({ field }) => (
-                        <FormItem className="flex flex-row items-center justify-between rounded-lg border p-4">
-                          <div className="space-y-0.5">
-                            <FormLabel className="text-base">Sync Tasks</FormLabel>
-                            <FormDescription>
-                              Automatically sync Jira issues as tasks
-                            </FormDescription>
-                          </div>
-                          <FormControl>
-                            <Switch
-                              checked={field.value}
-                              onCheckedChange={field.onChange}
-                            />
-                          </FormControl>
-                        </FormItem>
-                      )}
-                    />
                   </div>
 
                   <div className="flex justify-between pt-2">
-                    <Button
-                      type="button"
-                      variant="outline"
-                      onClick={() => testConnection('jira')}
-                      disabled={jiraForm.formState.isSubmitting}
-                    >
-                      Test Connection
-                    </Button>
                     <Button type="submit" disabled={jiraForm.formState.isSubmitting}>
                       {jiraForm.formState.isSubmitting ? 'Saving...' : 'Save Settings'}
                     </Button>
@@ -345,44 +270,16 @@ export function ProjectToolsIntegration() {
                       )}
                     />
 
-                    <FormField
-                      control={redmineForm.control}
-                      name="apiKey"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>API Key</FormLabel>
-                          <FormControl>
-                            <Input 
-                              type="password"
-                              placeholder="••••••••••••" 
-                              {...field} 
-                            />
-                          </FormControl>
-                          <FormDescription>
-                            <a 
-                              href="https://www.redmine.org/projects/redmine/wiki/Rest_api#Authentication" 
-                              target="_blank" 
-                              rel="noopener noreferrer"
-                              className="text-blue-600 hover:underline flex items-center gap-1 text-sm"
-                            >
-                              Find your API key in Redmine
-                              <ExternalLink className="h-3 w-3" />
-                            </a>
-                          </FormDescription>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
 
                     <FormField
                       control={redmineForm.control}
                       name="projectId"
                       render={({ field }) => (
                         <FormItem>
-                          <FormLabel>Project Identifier</FormLabel>
+                          <FormLabel>Project URL</FormLabel>
                           <FormControl>
                             <Input 
-                              placeholder="project-identifier" 
+                              placeholder="https://rm.virtuaresearch.com/projects/api-improvement" 
                               {...field} 
                             />
                           </FormControl>
@@ -391,37 +288,9 @@ export function ProjectToolsIntegration() {
                       )}
                     />
 
-                    <FormField
-                      control={redmineForm.control}
-                      name="syncEnabled"
-                      render={({ field }) => (
-                        <FormItem className="flex flex-row items-center justify-between rounded-lg border p-4">
-                          <div className="space-y-0.5">
-                            <FormLabel className="text-base">Sync Tasks</FormLabel>
-                            <FormDescription>
-                              Automatically sync Redmine issues as tasks
-                            </FormDescription>
-                          </div>
-                          <FormControl>
-                            <Switch
-                              checked={field.value}
-                              onCheckedChange={field.onChange}
-                            />
-                          </FormControl>
-                        </FormItem>
-                      )}
-                    />
                   </div>
 
                   <div className="flex justify-between pt-2">
-                    <Button
-                      type="button"
-                      variant="outline"
-                      onClick={() => testConnection('redmine')}
-                      disabled={redmineForm.formState.isSubmitting}
-                    >
-                      Test Connection
-                    </Button>
                     <Button type="submit" disabled={redmineForm.formState.isSubmitting}>
                       {redmineForm.formState.isSubmitting ? 'Saving...' : 'Save Settings'}
                     </Button>
