@@ -1,6 +1,6 @@
-# TaskFlow - Daily Task Tracker
+# TaskFlow - Daily Task & Project Management
 
-A modern, feature-rich daily task management application built with Next.js 15, React 19, and TypeScript. TaskFlow helps you organize, track, and manage your daily tasks with an intuitive interface and powerful features.
+A modern, feature-rich daily task and project management application built with Next.js 15, React 19, and TypeScript. TaskFlow helps you organize, track, and manage your daily tasks and projects with an intuitive interface and powerful integrations.
 
 ![TaskFlow](https://img.shields.io/badge/Next.js-15.4.1-black?style=flat-square&logo=next.js)
 ![React](https://img.shields.io/badge/React-19.1.0-blue?style=flat-square&logo=react)
@@ -9,7 +9,22 @@ A modern, feature-rich daily task management application built with Next.js 15, 
 
 ## ✨ Features
 
-### 🎯 Task Management
+## 🏗️ Project Management
+
+### 📂 Project Organization
+- **Project Creation**: Create and manage multiple projects with custom details
+- **Project Status Tracking**: Track project status (Active, On Hold, Completed, Cancelled)
+- **Client Management**: Associate projects with clients
+- **Color Coding**: Visual project identification with custom color selection
+- **Date Tracking**: Monitor project start and end dates
+
+### 🔄 Project Integration
+- **Jira Integration**: Connect projects to Jira boards and track issues
+- **Redmine Integration**: Link projects to Redmine for issue tracking
+- **Unified View**: Access all project information in one place
+- **Quick Access**: Direct links to project management tools from the dashboard
+
+## 🎯 Task Management
 - **Create Tasks**: Add new tasks with comprehensive details including task ID, type, description, hours, project, and notes
 - **Edit Tasks**: Modify existing tasks with a user-friendly form interface
 - **Delete Tasks**: Remove tasks with confirmation prompts to prevent accidental deletions
@@ -18,11 +33,13 @@ A modern, feature-rich daily task management application built with Next.js 15, 
   - 🔄 **In Progress** - Tasks currently being worked on
   - ✅ **Done** - Completed tasks
 
-### 📊 Task Organization
-- **Project Categorization**: Organize tasks by different projects
+### 📊 Task & Project Organization
+- **Project Categorization**: Organize tasks by different projects with visual indicators
 - **Task Types**: Categorize tasks by type (Development, Testing, Design, Bug Fix, Documentation, Meeting)
+- **Project Integration**: Link tasks to external project management tools (Jira, Redmine)
 - **Monthly Tracking**: Track tasks by month for better time management
 - **Hour Tracking**: Monitor both total hours and approved hours for each task
+- **Integration Status**: View integration status and access external project links directly
 
 ### 🔍 Advanced Filtering & Search
 - **Real-time Search**: Search across task IDs, descriptions, types, projects, and notes
@@ -72,6 +89,27 @@ A modern, feature-rich daily task management application built with Next.js 15, 
 - **User Profile Menu**: Dropdown with profile, settings, and logout options
 - **Empty States**: Helpful guidance when no tasks are present
 - **Confirmation Dialogs**: Safety prompts for destructive actions
+
+## 🔌 Integration Features
+
+### 🔗 External Tool Integration
+- **Jira Integration**:
+  - Connect to Jira Cloud or Server instances
+  - Map projects to Jira boards
+  - Track Jira issues alongside tasks
+  - Direct links to Jira issues
+
+- **Redmine Integration**:
+  - Connect to Redmine instances
+  - Associate projects with Redmine projects
+  - Track Redmine issues
+  - Direct links to Redmine issues
+
+### 🔄 Synchronization
+- Real-time status updates
+- Two-way sync for task/project status
+- Conflict resolution for concurrent changes
+- Activity logging for all integration events
 
 ## 🛠️ Technology Stack
 
@@ -251,6 +289,35 @@ TaskFlow is fully responsive and optimized for:
 - **Desktop**: Full feature set with multi-column layout
 - **Tablet**: Adapted layout with touch-friendly controls
 - **Mobile**: Streamlined interface with collapsible elements
+
+## 🚀 Getting Started
+
+### Prerequisites
+- Node.js 18+ and npm/yarn
+- Next.js 15+
+- (Optional) Jira Cloud/Server account for Jira integration
+- (Optional) Redmine instance for Redmine integration
+
+### Configuration
+1. Clone the repository
+2. Install dependencies: `npm install` or `yarn`
+3. Set up environment variables (see `.env.example`)
+4. Run the development server: `npm run dev` or `yarn dev`
+
+### Setting Up Integrations
+
+#### Jira Integration
+1. Navigate to Project Settings > Integration
+2. Select Jira from the integration list
+3. Enter your Jira URL (e.g., `https://your-domain.atlassian.net`)
+4. Provide API credentials
+5. Map projects to Jira boards
+
+#### Redmine Integration
+1. Navigate to Project Settings > Integration
+2. Select Redmine from the integration list
+3. Enter your Redmine URL and API key
+4. Map projects to Redmine projects
 
 ## 🚀 Deployment
 

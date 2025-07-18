@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
@@ -48,38 +48,8 @@ type IntegrationConfig = {
   trello: any | null;
 };
 
-// Reusing the same Project type as in projects-management.tsx
-interface Project {
-  id: string;
-  name: string;
-  description?: string;
-  status: string;
-  startDate: string;
-  endDate?: string;
-  client?: string;
-  color: string;
-  integrations?: {
-    jira?: {
-      url: string;
-      email: string;
-      apiToken: string;
-      projectKey: string;
-      syncEnabled: boolean;
-    };
-    redmine?: {
-      url: string;
-      apiKey: string;
-      projectId: string;
-      syncEnabled: boolean;
-    };
-  };
-}
-
 export function ProjectToolsIntegration() {
   const [activeTab, setActiveTab] = useState<IntegrationType>('jira');
-  const [projects, setProjects] = useState<Project[]>([]);
-  const [selectedProjectId, setSelectedProjectId] = useState<string>('');
-  const [isLoading, setIsLoading] = useState<boolean>(false);
   const [integrations, setIntegrations] = useState<IntegrationConfig>({
     jira: null,
     redmine: null,
@@ -99,82 +69,30 @@ export function ProjectToolsIntegration() {
     }
   };
 
-  // Save integration settings to the project in localStorage
+  // Save integrations to localStorage
   const saveIntegrations = (config: IntegrationConfig) => {
-    if (!selectedProjectId) return;
-    
-    setProjects(currentProjects => {
-      const updatedProjects = currentProjects.map(project => {
-        if (project.id === selectedProjectId) {
-          const updatedIntegrations = {
-            ...project.integrations,
-            jira: config.jira ? { 
-              url: config.jira.url,
-              email: config.jira.email,
-              apiToken: config.jira.apiToken,
-              projectKey: config.jira.projectKey,
-              syncEnabled: config.jira.syncEnabled
-            } : project.integrations?.jira,
-            redmine: config.redmine ? {
-              url: config.redmine.url,
-              apiKey: config.redmine.apiKey,
-              projectId: config.redmine.projectId,
-              syncEnabled: config.redmine.syncEnabled
-            } : project.integrations?.redmine
-          };
-          
-          // Only include integrations if at least one exists
-          const hasIntegrations = updatedIntegrations.jira || updatedIntegrations.redmine;
-          
-          return {
-            ...project,
-            integrations: hasIntegrations ? updatedIntegrations : undefined
-          };
-        }
-        return project;
-      });
-      
-      // Save updated projects back to localStorage
-      localStorage.setItem('projects', JSON.stringify(updatedProjects));
-      
-      return updatedProjects;
-    });
+    localStorage.setItem('projectToolIntegrations', JSON.stringify(config));
   };
 
   // Handle form submission
   const onJiraSubmit = (data: z.infer<typeof jiraSchema>) => {
-    const updated = { 
-      ...integrations, 
-      jira: {
-        ...data,
-        // Ensure we're only saving the fields we need
-        url: data.url.trim(),
-        email: data.email.trim(),
-        apiToken: data.apiToken,
-        projectKey: data.projectKey.trim(),
-        syncEnabled: data.syncEnabled
-      }
-    };
+    const updated = { ...integrations, jira: data };
     setIntegrations(updated);
     saveIntegrations(updated);
-    toast('Jira settings saved - Your Jira integration has been configured successfully.');
+    toast({
+      title: 'Jira settings saved',
+      description: 'Your Jira integration has been configured successfully.',
+    });
   };
 
   const onRedmineSubmit = (data: z.infer<typeof redmineSchema>) => {
-    const updated = { 
-      ...integrations, 
-      redmine: {
-        ...data,
-        // Ensure we're only saving the fields we need
-        url: data.url.trim(),
-        apiKey: data.apiKey,
-        projectId: data.projectId.trim(),
-        syncEnabled: data.syncEnabled
-      }
-    };
+    const updated = { ...integrations, redmine: data };
     setIntegrations(updated);
     saveIntegrations(updated);
-    toast('Redmine settings saved - Your Redmine integration has been configured successfully.');
+    toast({
+      title: 'Redmine settings saved',
+      description: 'Your Redmine integration has been configured successfully.',
+    });
   };
 
   // Test connection to the service
@@ -224,83 +142,10 @@ export function ProjectToolsIntegration() {
     },
   });
 
-  // Load projects from localStorage on component mount
-  useEffect(() => {
-    const fetchProjects = () => {
-      setIsLoading(true);
-      try {
-        // Load projects from localStorage (same as ProjectsManagement component)
-        const savedProjects = localStorage.getItem('projects');
-        if (savedProjects) {
-          const projectsData: Project[] = JSON.parse(savedProjects);
-          setProjects(projectsData);
-          if (projectsData.length > 0) {
-            setSelectedProjectId(projectsData[0].id);
-          }
-        }
-      } catch (error) {
-        console.error('Failed to fetch projects:', error);
-        toast({
-          title: 'Error',
-          description: 'Failed to load projects',
-          variant: 'destructive',
-        });
-      } finally {
-        setIsLoading(false);
-      }
-    };
-
-    fetchProjects();
+  // Load integrations on component mount
+  useState(() => {
     loadIntegrations();
   }, []);
-
-  // Update form values when selected project changes
-  useEffect(() => {
-    if (!selectedProjectId) return;
-    
-    const project = projects.find(p => p.id === selectedProjectId);
-    if (!project) return;
-
-    // Update Jira form if project has Jira integration
-    if (project.integrations?.jira) {
-      const jiraData = project.integrations.jira;
-      jiraForm.reset({
-        url: jiraData.url,
-        email: jiraData.email,
-        apiToken: jiraData.apiToken, // Note: In a real app, consider security implications
-        projectKey: jiraData.projectKey,
-        syncEnabled: jiraData.syncEnabled
-      });
-    } else if (integrations.jira) {
-      // Reset Jira form if no integration for this project
-      jiraForm.reset({
-        url: '',
-        email: '',
-        apiToken: '',
-        projectKey: '',
-        syncEnabled: true
-      });
-    }
-
-    // Update Redmine form if project has Redmine integration
-    if (project.integrations?.redmine) {
-      const redmineData = project.integrations.redmine;
-      redmineForm.reset({
-        url: redmineData.url,
-        apiKey: redmineData.apiKey, // Note: In a real app, consider security implications
-        projectId: redmineData.projectId,
-        syncEnabled: redmineData.syncEnabled
-      });
-    } else if (integrations.redmine) {
-      // Reset Redmine form if no integration for this project
-      redmineForm.reset({
-        url: '',
-        apiKey: '',
-        projectId: '',
-        syncEnabled: true
-      });
-    }
-  }, [selectedProjectId, projects]);
 
   return (
     <div className="space-y-6">
@@ -309,32 +154,6 @@ export function ProjectToolsIntegration() {
         <p className="text-sm text-muted-foreground">
           Connect your project management tools to sync tasks and track time.
         </p>
-      </div>
-
-      <div className="space-y-2">
-        <Label htmlFor="project-select">Select Project</Label>
-        <Select 
-          value={selectedProjectId} 
-          onValueChange={setSelectedProjectId}
-          disabled={isLoading || projects.length === 0}
-        >
-          <SelectTrigger className="w-full md:w-1/2">
-            <SelectValue placeholder="Select a project" />
-          </SelectTrigger>
-          <SelectContent>
-            {projects.map((project) => (
-              <SelectItem key={project.id} value={project.id}>
-                {project.name}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-        {isLoading && (
-          <p className="text-sm text-muted-foreground">Loading projects...</p>
-        )}
-        {!isLoading && projects.length === 0 && (
-          <p className="text-sm text-muted-foreground">No projects found</p>
-        )}
       </div>
 
       <Tabs 
