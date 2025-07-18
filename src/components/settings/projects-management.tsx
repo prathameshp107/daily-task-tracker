@@ -30,12 +30,28 @@ const projectSchema = z.object({
   endDate: z.string().optional(),
   client: z.string().optional(),
   color: z.string().min(1, 'Required'),
+  jiraUrl: z.string().optional(),
+  jiraProjectKey: z.string().optional(),
+  redmineUrl: z.string().optional(),
+  redmineProjectId: z.string().optional(),
 });
 
 type ProjectFormValues = z.infer<typeof projectSchema>;
 
+interface Integration {
+  url: string;
+  projectKey?: string;
+  projectId?: string;
+}
+
+interface ProjectIntegrations {
+  jira?: Integration;
+  redmine?: Integration;
+}
+
 interface Project extends ProjectFormValues {
   id: string;
+  integrations?: ProjectIntegrations;
 }
 
 export function ProjectsManagement() {
@@ -52,6 +68,10 @@ export function ProjectsManagement() {
       startDate: new Date().toISOString().split('T')[0],
       client: '',
       color: '#3b82f6', // Default blue color
+      jiraUrl: '',
+      jiraProjectKey: '',
+      redmineUrl: '',
+      redmineProjectId: '',
     },
   });
 
@@ -75,26 +95,40 @@ export function ProjectsManagement() {
   }, [projects]);
 
   const onSubmit = (data: ProjectFormValues) => {
+    const projectData = {
+      ...data,
+      integrations: {
+        ...(data.jiraUrl ? {
+          jira: {
+            url: data.jiraUrl,
+            projectKey: data.jiraProjectKey || '',
+            syncEnabled: true
+          }
+        } : {}),
+        ...(data.redmineUrl ? {
+          redmine: {
+            url: data.redmineUrl,
+            projectId: data.redmineProjectId || '',
+            syncEnabled: true
+          }
+        } : {})
+      }
+    };
+
     if (isEditing && data.id) {
       // Update existing project
       setProjects(projects.map(project => 
-        project.id === data.id ? { ...data, id: data.id } as Project : project
+        project.id === data.id ? { ...projectData, id: data.id } as Project : project
       ));
-      toast({
-        title: 'Project updated',
-        description: 'Your project has been updated successfully.',
-      });
+      toast('Project updated - Your project has been updated successfully.');
     } else {
       // Add new project
       const newProject: Project = {
-        ...data,
+        ...projectData,
         id: Date.now().toString(),
       };
       setProjects([...projects, newProject]);
-      toast({
-        title: 'Project created',
-        description: 'Your new project has been added.',
-      });
+      toast('Project created - Your new project has been added.');
     }
     
     // Reset form and close it
@@ -104,17 +138,20 @@ export function ProjectsManagement() {
   };
 
   const editProject = (project: Project) => {
-    form.reset(project);
+    form.reset({
+      ...project,
+      jiraUrl: project.integrations?.jira?.url || '',
+      jiraProjectKey: project.integrations?.jira?.projectKey || '',
+      redmineUrl: project.integrations?.redmine?.url || '',
+      redmineProjectId: project.integrations?.redmine?.projectId || '',
+    });
     setIsEditing(true);
     setIsFormOpen(true);
   };
 
   const deleteProject = (id: string) => {
     setProjects(projects.filter(project => project.id !== id));
-    toast({
-      title: 'Project deleted',
-      description: 'The project has been removed.',
-    });
+    toast('Project deleted - The project has been removed.');
   };
 
   const getStatusBadge = (statusId: string) => {
@@ -283,6 +320,82 @@ export function ProjectsManagement() {
                 )}
               />
 
+              <div className="space-y-4 pt-4 border-t mt-4">
+                <h4 className="text-sm font-medium">Integration Settings</h4>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="space-y-2 p-4 border rounded-lg">
+                    <div className="flex items-center gap-2 mb-2">
+                      <svg className="w-5 h-5 text-blue-600" viewBox="0 0 16 16" fill="currentColor">
+                        <path d="M15.7 2.7c.4.4.7 1 .7 1.6v9.4c0 .6-.2 1.2-.7 1.6-.4.4-1 .7-1.6.7H1.9c-.6 0-1.2-.2-1.6-.7C-.1 15-.1 13.7.7 13l3.9-3.9c.4-.4 1-.4 1.4 0 .4.4.4 1 0 1.4L2.1 14.4c-.1.1-.1.1 0 .2.1 0 .1 0 .2 0h12.2c.1 0 .1 0 .2-.1 0 0 0-.1.1-.2V4.3c0-.1 0-.1-.1-.2 0 0 0-.1-.1-.1H4.3c-.6 0-1-.4-1-1s.4-1 1-1h9.8c.6 0 1.2.3 1.6.7z"/>
+                      </svg>
+                      <h5 className="font-medium">Jira Integration</h5>
+                    </div>
+                    <FormField
+                      control={form.control}
+                      name="jiraUrl"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Jira URL</FormLabel>
+                          <FormControl>
+                            <Input placeholder="https://your-domain.atlassian.net" {...field} />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    <FormField
+                      control={form.control}
+                      name="jiraProjectKey"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Project Key</FormLabel>
+                          <FormControl>
+                            <Input placeholder="e.g., PROJ" {...field} />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                  </div>
+
+                  <div className="space-y-2 p-4 border rounded-lg">
+                    <div className="flex items-center gap-2 mb-2">
+                      <svg className="w-5 h-5 text-red-600" viewBox="0 0 24 24" fill="currentColor">
+                        <path d="M12 0C5.373 0 0 5.373 0 12s5.373 12 12 12 12-5.373 12-12S18.627 0 12 0zm0 22.5C6.201 22.5 1.5 17.799 1.5 12S6.201 1.5 12 1.5 22.5 6.201 22.5 12 17.799 22.5 12 22.5z"/>
+                        <path d="M12 6c-3.309 0-6 2.691-6 6s2.691 6 6 6 6-2.691 6-6-2.691-6-6-6zm0 10.5c-2.485 0-4.5-2.015-4.5-4.5S9.515 7.5 12 7.5s4.5 2.015 4.5 4.5-2.015 4.5-4.5 4.5z"/>
+                      </svg>
+                      <h5 className="font-medium">Redmine Integration</h5>
+                    </div>
+                    <FormField
+                      control={form.control}
+                      name="redmineUrl"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Redmine URL</FormLabel>
+                          <FormControl>
+                            <Input placeholder="https://redmine.yourdomain.com" {...field} />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    <FormField
+                      control={form.control}
+                      name="redmineProjectId"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Project ID</FormLabel>
+                          <FormControl>
+                            <Input placeholder="e.g., 123" {...field} />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                  </div>
+                </div>
+              </div>
+
               <div className="flex justify-end space-x-2 pt-2">
                 <Button 
                   type="button" 
@@ -313,6 +426,7 @@ export function ProjectsManagement() {
                 <TableHead>Status</TableHead>
                 <TableHead>Start Date</TableHead>
                 <TableHead>End Date</TableHead>
+                <TableHead>Integration Links</TableHead>
                 <TableHead className="text-right">Actions</TableHead>
               </TableRow>
             </TableHeader>
@@ -332,6 +446,42 @@ export function ProjectsManagement() {
                   <TableCell>{getStatusBadge(project.status)}</TableCell>
                   <TableCell>{new Date(project.startDate).toLocaleDateString()}</TableCell>
                   <TableCell>{project.endDate ? new Date(project.endDate).toLocaleDateString() : '-'}</TableCell>
+                  <TableCell>
+                    <div className="flex flex-col gap-1">
+                      {project.integrations?.jira?.url && (
+                        <a 
+                          href={project.integrations.jira.url} 
+                          target="_blank" 
+                          rel="noopener noreferrer"
+                          className="text-blue-600 hover:underline text-sm flex items-center gap-1"
+                          title={project.integrations.jira.projectKey ? `Project Key: ${project.integrations.jira.projectKey}` : 'Jira Project'}
+                        >
+                          <svg className="w-3 h-3" viewBox="0 0 16 16" fill="currentColor">
+                            <path d="M15.7 2.7c.4.4.7 1 .7 1.6v9.4c0 .6-.2 1.2-.7 1.6-.4.4-1 .7-1.6.7H1.9c-.6 0-1.2-.2-1.6-.7C-.1 15-.1 13.7.7 13l3.9-3.9c.4-.4 1-.4 1.4 0 .4.4.4 1 0 1.4L2.1 14.4c-.1.1-.1.1 0 .2.1 0 .1 0 .2 0h12.2c.1 0 .1 0 .2-.1 0 0 0-.1.1-.2V4.3c0-.1 0-.1-.1-.2 0 0 0-.1-.1-.1H4.3c-.6 0-1-.4-1-1s.4-1 1-1h9.8c.6 0 1.2.3 1.6.7z"/>
+                          </svg>
+                          Jira
+                        </a>
+                      )}
+                      {project.integrations?.redmine?.url && (
+                        <a 
+                          href={project.integrations.redmine.url} 
+                          target="_blank" 
+                          rel="noopener noreferrer"
+                          className="text-red-600 hover:underline text-sm flex items-center gap-1"
+                          title={project.integrations.redmine.projectId ? `Project ID: ${project.integrations.redmine.projectId}` : 'Redmine Project'}
+                        >
+                          <svg className="w-3 h-3" viewBox="0 0 24 24" fill="currentColor">
+                            <path d="M12 0C5.373 0 0 5.373 0 12s5.373 12 12 12 12-5.373 12-12S18.627 0 12 0zm0 22.5C6.201 22.5 1.5 17.799 1.5 12S6.201 1.5 12 1.5 22.5 6.201 22.5 12 17.799 22.5 12 22.5z"/>
+                            <path d="M12 6c-3.309 0-6 2.691-6 6s2.691 6 6 6 6-2.691 6-6-2.691-6-6-6zm0 10.5c-2.485 0-4.5-2.015-4.5-4.5S9.515 7.5 12 7.5s4.5 2.015 4.5 4.5-2.015 4.5-4.5 4.5z"/>
+                          </svg>
+                          Redmine
+                        </a>
+                      )}
+                      {(!project.integrations?.jira?.url && !project.integrations?.redmine?.url) && (
+                        <span className="text-muted-foreground text-xs">None</span>
+                      )}
+                    </div>
+                  </TableCell>
                   <TableCell className="text-right">
                     <div className="flex justify-end space-x-2">
                       <Button
