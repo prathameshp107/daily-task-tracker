@@ -1,1 +1,1 @@
-export { DatePicker as Calendar } from "./calender"; 
+export { Calendar } from "./calender"; 

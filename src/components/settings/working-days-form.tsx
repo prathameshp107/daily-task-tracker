@@ -1,26 +1,36 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { format, getDaysInMonth, eachDayOfInterval, isWeekend } from 'date-fns';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
 import { Button } from '@/components/ui/button';
-import { Checkbox } from '@/components/ui/checkbox';
 import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { toast } from '@/components/ui/use-toast';
+import { cn } from '@/lib/utils';
+import React from 'react';
+import { DateRange } from 'react-day-picker';
 
 const workingDaysSchema = z.object({
-  workingDays: z.array(z.string()).min(1, 'Select at least one working day'),
+  month: z.string().min(1, 'Select a month'),
+  workingRange: z.object({ from: z.date().optional(), to: z.date().optional() }),
   workHours: z.object({
     start: z.string().min(1, 'Required'),
     end: z.string().min(1, 'Required'),
   }),
   timezone: z.string().min(1, 'Required'),
+  totalWorkingDays: z.number().min(0, 'Total working days'),
 });
 
 type WorkingDaysFormValues = z.infer<typeof workingDaysSchema>;
+
+const MONTHS = [
+  'January', 'February', 'March', 'April', 'May', 'June',
+  'July', 'August', 'September', 'October', 'November', 'December'
+];
 
 const DAYS = [
   { id: 'monday', label: 'Monday' },
@@ -39,12 +49,14 @@ export function WorkingDaysForm() {
   const form = useForm<WorkingDaysFormValues>({
     resolver: zodResolver(workingDaysSchema),
     defaultValues: {
-      workingDays: ['monday', 'tuesday', 'wednesday', 'thursday', 'friday'],
+      month: MONTHS[new Date().getMonth()],
+      workingRange: { from: undefined, to: undefined },
       workHours: {
         start: '09:00',
         end: '18:00',
       },
       timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+      totalWorkingDays: 22,
     },
   });
 
@@ -62,10 +74,14 @@ export function WorkingDaysForm() {
     ]);
 
     // Load saved settings
-    const savedSettings = localStorage.getItem('workingDaysSettings');
+    const savedSettings = localStorage.getItem('workingDaysSettingsByMonth');
     if (savedSettings) {
       try {
-        form.reset(JSON.parse(savedSettings));
+        const parsed = JSON.parse(savedSettings);
+        const month = MONTHS[new Date().getMonth()];
+        if (parsed[month]) {
+          form.reset(parsed[month]);
+        }
       } catch (e) {
         console.error('Failed to parse saved settings', e);
       }
@@ -74,17 +90,52 @@ export function WorkingDaysForm() {
 
   const onSubmit = (data: WorkingDaysFormValues) => {
     setIsLoading(true);
-    
-    // Simulate API call
+    // Save per month
     setTimeout(() => {
-      localStorage.setItem('workingDaysSettings', JSON.stringify(data));
+      const saved = localStorage.getItem('workingDaysSettingsByMonth');
+      let allSettings = {};
+      if (saved) {
+        allSettings = JSON.parse(saved);
+      }
+      allSettings[data.month] = data;
+      localStorage.setItem('workingDaysSettingsByMonth', JSON.stringify(allSettings));
       setIsLoading(false);
       toast({
         title: 'Settings saved',
-        description: 'Your working days configuration has been updated.',
+        description: `Your working days for ${data.month} have been updated.`,
       });
     }, 1000);
   };
+
+  // Calendar grid logic
+  const selectedMonth = form.watch('month');
+  const year = new Date().getFullYear();
+  const monthIndex = MONTHS.indexOf(selectedMonth);
+
+  // Calculate all days in the selected month
+  const firstDay = new Date(year, monthIndex, 1);
+  const lastDay = new Date(year, monthIndex + 1, 0);
+  const allDays = eachDayOfInterval({ start: firstDay, end: lastDay });
+  const workingDays = allDays.filter(day => day.getDay() !== 0 && day.getDay() !== 6);
+  const totalWorkingDays = workingDays.length;
+
+  // Fetch leave days for the selected month from localStorage (same as LeaveManagement)
+  let totalLeaveDays = 0;
+  try {
+    const savedLeaves = localStorage.getItem('leaveManagement');
+    if (savedLeaves) {
+      const parsedLeaves = JSON.parse(savedLeaves);
+      const leavesForMonth = parsedLeaves.filter((leave: any) => {
+        const leaveStart = new Date(leave.startDate);
+        return leaveStart.getMonth() === monthIndex && leaveStart.getFullYear() === year;
+      });
+      totalLeaveDays = leavesForMonth.reduce((sum: number, leave: any) => sum + leave.days, 0);
+    }
+  } catch (e) {
+    totalLeaveDays = 0;
+  }
+
+  const finalWorkingDays = totalWorkingDays - totalLeaveDays;
 
   return (
     <Form {...form}>
@@ -92,110 +143,41 @@ export function WorkingDaysForm() {
         <div className="space-y-4">
           <FormField
             control={form.control}
-            name="workingDays"
-            render={() => (
+            name="month"
+            render={({ field }) => (
               <FormItem>
-                <div className="mb-4">
-                  <FormLabel className="text-base">Working Days</FormLabel>
-                  <FormDescription>
-                    Select the days you typically work.
-                  </FormDescription>
-                </div>
-                <div className="grid grid-cols-2 gap-2">
-                  {DAYS.map((day) => (
-                    <FormField
-                      key={day.id}
-                      control={form.control}
-                      name="workingDays"
-                      render={({ field }) => {
-                        return (
-                          <FormItem
-                            key={day.id}
-                            className="flex flex-row items-start space-x-3 space-y-0"
-                          >
-                            <FormControl>
-                              <Checkbox
-                                checked={field.value?.includes(day.id)}
-                                onCheckedChange={(checked) => {
-                                  return checked
-                                    ? field.onChange([...field.value, day.id])
-                                    : field.onChange(
-                                        field.value?.filter(
-                                          (value) => value !== day.id
-                                        )
-                                      )
-                                }}
-                              />
-                            </FormControl>
-                            <FormLabel className="font-normal">
-                              {day.label}
-                            </FormLabel>
-                          </FormItem>
-                        )
-                      }}
-                    />
-                  ))}\n                </div>
+                <FormLabel>Month</FormLabel>
+                <Select onValueChange={field.onChange} defaultValue={field.value}>
+                  <FormControl>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select month" />
+                    </SelectTrigger>
+                  </FormControl>
+                  <SelectContent>
+                    {MONTHS.map((m) => (
+                      <SelectItem key={m} value={m}>{m}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
                 <FormMessage />
               </FormItem>
             )}
           />
-
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <FormField
-              control={form.control}
-              name="workHours.start"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Workday Start</FormLabel>
-                  <FormControl>
-                    <Input type="time" {...field} />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-
-            <FormField
-              control={form.control}
-              name="workHours.end"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Workday End</FormLabel>
-                  <FormControl>
-                    <Input type="time" {...field} />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-
-            <FormField
-              control={form.control}
-              name="timezone"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Timezone</FormLabel>
-                  <Select onValueChange={field.onChange} defaultValue={field.value}>
-                    <FormControl>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select timezone" />
-                      </SelectTrigger>
-                    </FormControl>
-                    <SelectContent>
-                      {timezones.map((tz) => (
-                        <SelectItem key={tz} value={tz}>
-                          {tz}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+            <div className="p-4 border rounded-lg">
+              <h3 className="text-sm font-medium text-muted-foreground">Working Days (Excl. Weekends)</h3>
+              <p className="text-2xl font-bold text-blue-700">{totalWorkingDays}</p>
+            </div>
+            <div className="p-4 border rounded-lg">
+              <h3 className="text-sm font-medium text-muted-foreground">Leave Days in Month</h3>
+              <p className="text-2xl font-bold text-amber-600">{totalLeaveDays}</p>
+            </div>
+            <div className="p-4 border rounded-lg">
+              <h3 className="text-sm font-medium text-muted-foreground">Final Working Days</h3>
+              <p className="text-2xl font-bold text-green-600">{finalWorkingDays}</p>
+            </div>
           </div>
         </div>
-
         <Button type="submit" disabled={isLoading}>
           {isLoading ? 'Saving...' : 'Save Changes'}
         </Button>

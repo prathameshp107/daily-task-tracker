@@ -25,8 +25,7 @@ const leaveTypes = [
 
 const leaveSchema = z.object({
   leaveType: z.string().min(1, 'Required'),
-  startDate: z.date(),
-  endDate: z.date(),
+  leaveDate: z.date(),
   notes: z.string().optional(),
 });
 
@@ -35,23 +34,27 @@ type LeaveFormValues = z.infer<typeof leaveSchema>;
 interface LeaveEntry {
   id: string;
   leaveType: string;
-  startDate: Date;
-  endDate: Date;
+  leaveDate: Date;
   notes?: string;
-  days: number;
 }
+
+const MONTHS = [
+  'January', 'February', 'March', 'April', 'May', 'June',
+  'July', 'August', 'September', 'October', 'November', 'December'
+];
 
 export function LeaveManagement() {
   const [date, setDate] = useState<Date>(new Date());
+  const [selectedMonth, setSelectedMonth] = useState<string>(MONTHS[new Date().getMonth()]);
   const [leaves, setLeaves] = useState<LeaveEntry[]>([]);
   const [isLoading, setIsLoading] = useState(false);
+  const [leaveDatePopoverOpen, setLeaveDatePopoverOpen] = useState(false);
 
   const form = useForm<LeaveFormValues>({
     resolver: zodResolver(leaveSchema),
     defaultValues: {
       leaveType: '',
-      startDate: new Date(),
-      endDate: new Date(),
+      leaveDate: new Date(),
       notes: '',
     },
   });
@@ -65,8 +68,7 @@ export function LeaveManagement() {
         // Convert string dates back to Date objects
         const processedLeaves: LeaveEntry[] = parsedLeaves.map((leave: Record<string, unknown>) => ({
           ...leave,
-          startDate: new Date(leave.startDate as string),
-          endDate: new Date(leave.endDate as string),
+          leaveDate: new Date(leave.leaveDate as string),
         }));
         setLeaves(processedLeaves);
       } catch (e) {
@@ -83,8 +85,9 @@ export function LeaveManagement() {
   const onSubmit = (data: LeaveFormValues) => {
     const newLeave: LeaveEntry = {
       id: Date.now().toString(),
-      ...data,
-      days: calculateWorkingDays(data.startDate, data.endDate),
+      leaveType: data.leaveType,
+      leaveDate: data.leaveDate,
+      notes: data.notes,
     };
 
     const updatedLeaves = [...leaves, newLeave];
@@ -105,32 +108,52 @@ export function LeaveManagement() {
     localStorage.setItem('leaveManagement', JSON.stringify(leavesToSave));
   };
 
-  const getLeavesByMonth = (month: Date) => {
-    const start = startOfMonth(month);
-    const end = endOfMonth(month);
-    
-    return leaves.filter(leave => 
-      (leave.startDate >= start && leave.startDate <= end) ||
-      (leave.endDate >= start && leave.endDate <= end)
-    );
+  const getLeavesByMonth = (monthName: string) => {
+    const monthIndex = MONTHS.indexOf(monthName);
+    return leaves.filter(leave => {
+      return (
+        leave.leaveDate.getMonth() === monthIndex &&
+        leave.leaveDate.getFullYear() === date.getFullYear()
+      );
+    });
   };
 
-  const currentMonthLeaves = getLeavesByMonth(date);
+  const currentMonthLeaves = getLeavesByMonth(selectedMonth);
+  const totalLeavesCount = currentMonthLeaves.length;
+  const totalLeaveDays = currentMonthLeaves.length;
+
+  const total = 20; // This would typically come from user settings
+  const used = leaves.length;
+  const remaining = total - used;
   const leaveBalance = {
-    total: 20, // This would typically come from user settings
-    used: leaves.reduce((sum, leave) => sum + leave.days, 0),
-    remaining: 20 - leaves.reduce((sum, leave) => sum + leave.days, 0),
+    total,
+    used,
+    remaining,
   };
 
   return (
     <div className="space-y-6">
+      {/* Month Dropdown at the top for all sections */}
+      <div className="flex gap-2 items-center mb-4">
+        <span className="text-sm font-medium">Month:</span>
+        <select
+          className="border rounded px-2 py-1 text-sm"
+          value={selectedMonth}
+          onChange={e => setSelectedMonth(e.target.value)}
+        >
+          {MONTHS.map(m => (
+            <option key={m} value={m}>{m}</option>
+          ))}
+        </select>
+      </div>
+
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
         <div className="p-4 border rounded-lg">
-          <h3 className="text-sm font-medium text-muted-foreground">Total Leave Days</h3>
+          <h3 className="text-sm font-medium text-muted-foreground">Total Available Days</h3>
           <p className="text-2xl font-bold">{leaveBalance.total} days</p>
         </div>
         <div className="p-4 border rounded-lg">
-          <h3 className="text-sm font-medium text-muted-foreground">Used</h3>
+          <h3 className="text-sm font-medium text-muted-foreground">Leave Days</h3>
           <p className="text-2xl font-bold text-amber-600">{leaveBalance.used} days</p>
         </div>
         <div className="p-4 border rounded-lg">
@@ -141,9 +164,10 @@ export function LeaveManagement() {
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <div>
-          <h3 className="text-lg font-medium mb-4">Schedule Leave</h3>
+          <h3 className="text-lg font-medium mb-4">Add Leave</h3>
           <Form {...form}>
-            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4" autoComplete="new-password">
+              {/* Leave type dropdown at the top of the form */}
               <FormField
                 control={form.control}
                 name="leaveType"
@@ -168,84 +192,43 @@ export function LeaveManagement() {
                   </FormItem>
                 )}
               />
-
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <FormField
-                  control={form.control}
-                  name="startDate"
-                  render={({ field }) => (
-                    <FormItem className="flex flex-col">
-                      <FormLabel>Start Date</FormLabel>
-                      <Popover>
-                        <PopoverTrigger asChild>
-                          <FormControl>
-                            <Button
-                              variant={"outline"}
-                              className={cn(
-                                "pl-3 text-left font-normal",
-                                !field.value && "text-muted-foreground"
-                              )}
-                            >
-                              {field.value ? (
-                                format(field.value, "PPP")
-                              ) : (
-                                <span>Pick a date</span>
-                              )}
-                              <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
-                            </Button>
-                          </FormControl>
-                        </PopoverTrigger>
-                        <PopoverContent className="w-auto p-0" align="start">
-                          <Calendar
-                            mode="single"
-                            selectedDate={field.value}
-                            onDateChange={field.onChange}
-                          />
-                        </PopoverContent>
-                      </Popover>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-
-                <FormField
-                  control={form.control}
-                  name="endDate"
-                  render={({ field }) => (
-                    <FormItem className="flex flex-col">
-                      <FormLabel>End Date</FormLabel>
-                      <Popover>
-                        <PopoverTrigger asChild>
-                          <FormControl>
-                            <Button
-                              variant={"outline"}
-                              className={cn(
-                                "pl-3 text-left font-normal",
-                                !field.value && "text-muted-foreground"
-                              )}
-                            >
-                              {field.value ? (
-                                format(field.value, "PPP")
-                              ) : (
-                                <span>Pick a date</span>
-                              )}
-                              <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
-                            </Button>
-                          </FormControl>
-                        </PopoverTrigger>
-                        <PopoverContent className="w-auto p-0" align="start">
-                          <Calendar
-                            mode="single"
-                            selectedDate={field.value}
-                            onDateChange={field.onChange}
-                          />
-                        </PopoverContent>
-                      </Popover>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-              </div>
+              <FormField
+                control={form.control}
+                name="leaveDate"
+                render={({ field }) => (
+                  <FormItem className="flex flex-col">
+                    <FormLabel>Leave Date</FormLabel>
+                    <Popover open={leaveDatePopoverOpen} onOpenChange={setLeaveDatePopoverOpen}>
+                      <PopoverTrigger asChild>
+                        <Button
+                          variant="outline"
+                          className={cn(
+                            "w-full justify-start text-left font-normal",
+                            !field.value && "text-muted-foreground"
+                          )}
+                        >
+                          {field.value
+                            ? format(field.value, "PPP")
+                            : "Pick a date"}
+                        </Button>
+                      </PopoverTrigger>
+                      <PopoverContent className="w-auto p-0" align="start">
+                        <Calendar
+                          mode="single"
+                          selected={field.value}
+                          onSelect={val => {
+                            field.onChange(val);
+                            if (val) setLeaveDatePopoverOpen(false);
+                          }}
+                          initialFocus
+                          captionLayout="dropdown"
+                        />
+                      </PopoverContent>
+                    </Popover>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
 
               <FormField
                 control={form.control}
@@ -263,36 +246,24 @@ export function LeaveManagement() {
 
               <Button type="submit" className="w-full">
                 <Plus className="mr-2 h-4 w-4" />
-                Schedule Leave
+                Add Leave
               </Button>
             </form>
           </Form>
         </div>
 
         <div>
-          <div className="flex justify-between items-center mb-4">
-            <h3 className="text-lg font-medium">Scheduled Leaves</h3>
-            <div className="flex gap-2">
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => setDate(prev => addMonths(prev, -1))}
-              >
-                &larr;
-              </Button>
-              <div className="px-4 py-2 text-sm font-medium">
-                {format(date, 'MMMM yyyy')}
-              </div>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => setDate(prev => addMonths(prev, 1))}
-              >
-                &rarr;
-              </Button>
+          <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center mb-4 gap-2">
+            <h3 className="text-lg font-medium">Add Leaves</h3>
+          </div>
+          <div className="flex gap-4 mb-2">
+            <div className="p-2 bg-blue-50 rounded text-blue-700 text-xs font-medium">
+              Total Leaves: {totalLeavesCount}
+            </div>
+            <div className="p-2 bg-green-50 rounded text-green-700 text-xs font-medium">
+              Total Days on Leave: {totalLeaveDays}
             </div>
           </div>
-
           {currentMonthLeaves.length > 0 ? (
             <div className="space-y-2">
               {currentMonthLeaves.map((leave) => (
@@ -302,8 +273,7 @@ export function LeaveManagement() {
                       {leaveTypes.find(t => t.id === leave.leaveType)?.name || leave.leaveType}
                     </div>
                     <div className="text-sm text-muted-foreground">
-                      {format(new Date(leave.startDate), 'MMM d')} - {format(new Date(leave.endDate), 'MMM d, yyyy')}
-                      {' '}({leave.days} {leave.days === 1 ? 'day' : 'days'})
+                      {format(new Date(leave.leaveDate), 'PPP')}
                     </div>
                     {leave.notes && (
                       <p className="text-sm text-muted-foreground mt-1">{leave.notes}</p>
@@ -322,7 +292,7 @@ export function LeaveManagement() {
             </div>
           ) : (
             <div className="text-center py-8 border rounded-lg">
-              <p className="text-muted-foreground">No leaves scheduled for {format(date, 'MMMM yyyy')}</p>
+              <p className="text-muted-foreground">No leaves scheduled for {selectedMonth} {date.getFullYear()}</p>
             </div>
           )}
         </div>
