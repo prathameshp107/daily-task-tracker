@@ -240,16 +240,7 @@ export function TaskList({ tasks, onToggleTask, onDeleteTask, onEditTask, onFilt
   }
 
   if (tasks.length === 0) {
-    return (
-      <Card className="w-full max-w-2xl mx-auto">
-        <CardHeader>
-          <CardTitle>No tasks yet</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <p className="text-muted-foreground">Add your first task using the form above.</p>
-        </CardContent>
-      </Card>
-    );
+    return null;
   }
 
   const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {

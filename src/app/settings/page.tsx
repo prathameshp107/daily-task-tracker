@@ -4,7 +4,6 @@ import { ProtectedRoute } from '@/components/auth';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { WorkingDaysForm } from '@/components/settings/working-days-form';
 import { LeaveManagement } from '@/components/settings/leave-management';
-import { ProjectsManagement } from '@/components/settings/projects-management';
 import { ProjectToolsIntegration } from '@/components/settings/project-tools-integration';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Navbar } from '@/components/navbar';
@@ -21,10 +20,9 @@ export default function SettingsPage() {
           </div>
 
           <Tabs defaultValue="working-days" className="space-y-4">
-            <TabsList className="grid w-full grid-cols-4">
+            <TabsList className="grid w-full grid-cols-3">
               <TabsTrigger value="working-days">Working Days</TabsTrigger>
               <TabsTrigger value="leaves">Leaves</TabsTrigger>
-              <TabsTrigger value="projects">Projects</TabsTrigger>
               <TabsTrigger value="integrations">Integrations</TabsTrigger>
             </TabsList>
 
@@ -56,19 +54,7 @@ export default function SettingsPage() {
               </Card>
             </TabsContent>
 
-            <TabsContent value="projects" className="space-y-4">
-              <Card>
-                <CardHeader>
-                  <CardTitle>Projects Management</CardTitle>
-                  <CardDescription>
-                    Manage your current and past projects
-                  </CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <ProjectsManagement />
-                </CardContent>
-              </Card>
-            </TabsContent>
+
 
             <TabsContent value="integrations" className="space-y-4">
               <Card>

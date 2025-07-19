@@ -6,7 +6,9 @@ import { ProductivityMetrics } from "@/components/analytics/productivity-metrics
 import { ProductivityTrends } from "@/components/analytics/productivity-trends";
 import { useProductivityMetrics } from "@/hooks/useProductivityMetrics";
 import { format } from "date-fns";
+import { exportDashboardAndAnalyticsToExcel } from '@/lib/export/excel';
 import { testTasks, testLeaves } from "@/lib/analytics/test-data";
+import { Button } from "@/components/ui/button";
 
 // Format test data to match the expected format
 const formatTestData = () => {
@@ -87,6 +89,17 @@ const formatTestData = () => {
 const { tasks: mockTasks, trends: mockTrends } = formatTestData();
 
 export default function AnalyticsPage() {
+  const handleExport = async () => {
+    // Prepare analytics data for export
+    const metrics = useProductivityMetrics(mockTasks);
+    const analyticsData = {
+      metrics,
+      trends: mockTrends,
+      leaves: testLeaves,
+    };
+    await exportDashboardAndAnalyticsToExcel(testTasks, analyticsData);
+  };
+
   const AnalyticsContent = () => {
     try {
       console.log('Rendering AnalyticsPage with mock data:', {
@@ -103,6 +116,7 @@ export default function AnalyticsPage() {
           
           <main className="flex-1 bg-gray-50 dark:bg-gray-900 p-4 md:p-8">
             <div className="max-w-7xl mx-auto space-y-8">
+              <div className="flex items-center justify-between">
               <div>
                 <h1 className="text-3xl font-bold text-gray-900 dark:text-white">
                   Productivity Analytics
@@ -110,6 +124,10 @@ export default function AnalyticsPage() {
                 <p className="mt-2 text-gray-600 dark:text-gray-400">
                   Track your productivity metrics and performance
                 </p>
+                </div>
+                <Button onClick={handleExport} variant="outline">
+                  Export to Excel
+                </Button>
               </div>
               
               <ProductivityMetrics 

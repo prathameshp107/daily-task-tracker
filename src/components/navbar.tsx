@@ -5,7 +5,7 @@ import { usePathname } from "next/navigation";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { ThemeToggle } from "@/components/theme-toggle";
-import { Bell, Plus, Settings, User, LogOut, ChevronDown, BarChart3, Home, Menu, Clock, CheckCircle, Calendar, Zap, CalendarCheck, CalendarX, Settings as SettingsIcon } from "lucide-react";
+import { Bell, Plus, Settings, User, LogOut, ChevronDown, BarChart3, Home, Menu, Clock, CheckCircle, Calendar, Zap, CalendarCheck, CalendarX, Settings as SettingsIcon, FolderOpen } from "lucide-react";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -81,6 +81,16 @@ export function Navbar() {
               >
                 <BarChart3 className="h-4 w-4" />
                 <span className="font-medium">Analytics</span>
+              </Button>
+            </Link>
+            <Link href="/projects">
+              <Button 
+                variant={pathname === "/projects" ? "default" : "ghost"} 
+                size="sm"
+                className="flex items-center gap-2 px-3 py-1.5 h-9 transition-all hover:scale-[1.02]"
+              >
+                <FolderOpen className="h-4 w-4" />
+                <span className="font-medium">Projects</span>
               </Button>
             </Link>
             <Link href="/settings">

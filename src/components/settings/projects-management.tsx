@@ -54,10 +54,37 @@ interface Project extends ProjectFormValues {
   integrations?: ProjectIntegrations;
 }
 
-export function ProjectsManagement() {
+interface ProjectsManagementProps {
+  selectedMonth?: string;
+}
+
+export function ProjectsManagement({ selectedMonth = 'all' }: ProjectsManagementProps) {
   const [projects, setProjects] = useState<Project[]>([]);
+  const [filteredProjects, setFilteredProjects] = useState<Project[]>([]);
   const [isEditing, setIsEditing] = useState(false);
   const [isFormOpen, setIsFormOpen] = useState(false);
+
+  // Fetch integration settings from localStorage
+  const [integrationType, setIntegrationType] = useState<'jira' | 'redmine' | null>(null);
+  useEffect(() => {
+    const savedIntegrations = localStorage.getItem('projectToolIntegrations');
+    if (savedIntegrations) {
+      try {
+        const integrations = JSON.parse(savedIntegrations);
+        if (integrations.jira && integrations.jira.url) {
+          setIntegrationType('jira');
+        } else if (integrations.redmine && integrations.redmine.url) {
+          setIntegrationType('redmine');
+        } else {
+          setIntegrationType(null);
+        }
+      } catch (e) {
+        setIntegrationType(null);
+      }
+    } else {
+      setIntegrationType(null);
+    }
+  }, []);
 
   const form = useForm<ProjectFormValues>({
     resolver: zodResolver(projectSchema),
@@ -86,6 +113,20 @@ export function ProjectsManagement() {
       }
     }
   }, []);
+
+  // Filter projects based on selected month
+  useEffect(() => {
+    if (selectedMonth === 'all') {
+      setFilteredProjects(projects);
+    } else {
+      const filtered = projects.filter(project => {
+        const startDate = new Date(project.startDate);
+        const projectMonth = startDate.toLocaleString('default', { month: 'long' }).toLowerCase();
+        return projectMonth === selectedMonth;
+      });
+      setFilteredProjects(filtered);
+    }
+  }, [projects, selectedMonth]);
 
   // Save projects to localStorage whenever they change
   useEffect(() => {
@@ -416,7 +457,7 @@ export function ProjectsManagement() {
         </div>
       )}
 
-      {projects.length > 0 ? (
+      {filteredProjects.length > 0 ? (
         <div className="border rounded-lg overflow-hidden">
           <Table>
             <TableHeader>
@@ -431,7 +472,7 @@ export function ProjectsManagement() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {projects.map((project) => (
+              {filteredProjects.map((project) => (
                 <TableRow key={project.id}>
                   <TableCell className="font-medium">
                     <div className="flex items-center gap-2">
@@ -448,7 +489,7 @@ export function ProjectsManagement() {
                   <TableCell>{project.endDate ? new Date(project.endDate).toLocaleDateString() : '-'}</TableCell>
                   <TableCell>
                     <div className="flex flex-col gap-1">
-                      {project.integrations?.jira?.url && (
+                      {integrationType === 'jira' && project.integrations?.jira?.url && (
                         <a 
                           href={project.integrations.jira.url} 
                           target="_blank" 
@@ -462,7 +503,7 @@ export function ProjectsManagement() {
                           Jira
                         </a>
                       )}
-                      {project.integrations?.redmine?.url && (
+                      {integrationType === 'redmine' && project.integrations?.redmine?.url && (
                         <a 
                           href={project.integrations.redmine.url} 
                           target="_blank" 
@@ -477,7 +518,7 @@ export function ProjectsManagement() {
                           Redmine
                         </a>
                       )}
-                      {(!project.integrations?.jira?.url && !project.integrations?.redmine?.url) && (
+                      {((integrationType === 'jira' && !project.integrations?.jira?.url) || (integrationType === 'redmine' && !project.integrations?.redmine?.url) || !integrationType) && (
                         <span className="text-muted-foreground text-xs">None</span>
                       )}
                     </div>
@@ -526,9 +567,14 @@ export function ProjectsManagement() {
               <path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16" />
             </svg>
           </div>
-          <h3 className="mt-2 text-sm font-medium text-gray-900">No projects</h3>
+          <h3 className="mt-2 text-sm font-medium text-gray-900">
+            {selectedMonth === 'all' ? 'No projects' : `No projects in ${selectedMonth.charAt(0).toUpperCase() + selectedMonth.slice(1)}`}
+          </h3>
           <p className="mt-1 text-sm text-gray-500">
-            Get started by creating a new project.
+            {selectedMonth === 'all' 
+              ? 'Get started by creating a new project.'
+              : 'Try selecting a different month or create a new project.'
+            }
           </p>
           <div className="mt-6">
             <Button

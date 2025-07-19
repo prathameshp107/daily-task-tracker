@@ -17,6 +17,13 @@ type TaskFormData = Omit<Task, 'completed'> & {
   taskId: string;
 };
 
+interface Project {
+  id: string;
+  name: string;
+  status: string;
+  color: string;
+}
+
 export function TaskForm({ task, onSubmit, onCancel }: TaskFormProps) {
   const months = [
     'January', 'February', 'March', 'April', 'May', 'June',
@@ -27,6 +34,7 @@ export function TaskForm({ task, onSubmit, onCancel }: TaskFormProps) {
     'Development', 'Testing', 'Deployment', 'Design', 'Documentation', 'Meeting'
   ];
 
+  const [projects, setProjects] = useState<Project[]>([]);
   const [formData, setFormData] = useState<TaskFormData>({
     taskId: '',
     taskType: '',
@@ -38,6 +46,19 @@ export function TaskForm({ task, onSubmit, onCancel }: TaskFormProps) {
     note: '',
     status: 'todo',
   });
+
+  // Load projects from localStorage
+  useEffect(() => {
+    const savedProjects = localStorage.getItem('projects');
+    if (savedProjects) {
+      try {
+        const parsedProjects = JSON.parse(savedProjects);
+        setProjects(parsedProjects);
+      } catch (e) {
+        console.error('Failed to parse saved projects', e);
+      }
+    }
+  }, []);
 
   // Update form data when task prop changes (for edit mode)
   useEffect(() => {
@@ -69,10 +90,10 @@ export function TaskForm({ task, onSubmit, onCancel }: TaskFormProps) {
     }
   }, [task]);
 
-  const handleInputChange = (field: keyof Omit<TaskFormData, 'status' | 'month' | 'taskType'>) => 
+  const handleInputChange = (field: keyof Omit<TaskFormData, 'status' | 'month' | 'taskType' | 'project'>) => 
     (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
       const value = field === 'totalHours' || field === 'approvedHours'
-        ? Number(e.target.value) || 0
+        ? e.target.value === '' ? 0 : Number(e.target.value) || 0
         : e.target.value;
       
       setFormData(prev => ({
@@ -81,7 +102,7 @@ export function TaskForm({ task, onSubmit, onCancel }: TaskFormProps) {
       }));
     };
 
-  const handleSelectChange = (field: 'status' | 'month' | 'taskType', value: string) => {
+  const handleSelectChange = (field: 'status' | 'month' | 'taskType' | 'project', value: string) => {
     setFormData(prev => ({
       ...prev,
       [field]: field === 'status' ? value as Task['status'] : value
@@ -111,7 +132,7 @@ export function TaskForm({ task, onSubmit, onCancel }: TaskFormProps) {
         </CardTitle>
       </CardHeader>
       <form onSubmit={handleSubmit}>
-        <CardContent className="space-y-4">
+        <CardContent>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="space-y-2">
               <Label htmlFor="taskId">Task ID</Label>
@@ -184,10 +205,11 @@ export function TaskForm({ task, onSubmit, onCancel }: TaskFormProps) {
               <Input
                 id="totalHours"
                 type="number"
-                value={formData.totalHours}
+                value={formData.totalHours === 0 ? '' : formData.totalHours}
                 onChange={handleInputChange('totalHours')}
                 min="0"
                 step="0.5"
+                placeholder="Enter hours"
                 required
               />
             </div>
@@ -197,23 +219,44 @@ export function TaskForm({ task, onSubmit, onCancel }: TaskFormProps) {
               <Input
                 id="approvedHours"
                 type="number"
-                value={formData.approvedHours}
+                value={formData.approvedHours === 0 ? '' : formData.approvedHours}
                 onChange={handleInputChange('approvedHours')}
                 min="0"
                 step="0.5"
+                placeholder="Enter hours"
                 required
               />
             </div>
 
             <div className="space-y-2 md:col-span-2">
               <Label htmlFor="project">Project</Label>
-              <Input
-                id="project"
+              <Select
                 value={formData.project}
-                onChange={handleInputChange('project')}
-                placeholder="Project name"
-                required
-              />
+                onValueChange={(value) => handleSelectChange('project', value)}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Select project" />
+                </SelectTrigger>
+                <SelectContent>
+                  {projects.length > 0 ? (
+                    projects.map((project) => (
+                      <SelectItem key={project.id} value={project.name}>
+                        <div className="flex items-center gap-2">
+                          <div 
+                            className="h-3 w-3 rounded-full" 
+                            style={{ backgroundColor: project.color }}
+                          />
+                          {project.name}
+                        </div>
+                      </SelectItem>
+                    ))
+                  ) : (
+                    <SelectItem value="no-projects" disabled>
+                      No projects available. Create projects in Settings.
+                    </SelectItem>
+                  )}
+                </SelectContent>
+              </Select>
             </div>
 
             <div className="space-y-2 md:col-span-2">

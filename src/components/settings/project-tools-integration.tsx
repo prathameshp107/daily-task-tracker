@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
@@ -56,6 +56,21 @@ export function ProjectToolsIntegration() {
     asana: null,
     trello: null,
   });
+  const [projects, setProjects] = useState<{ id: string; name: string }[]>([]);
+  const [selectedProject, setSelectedProject] = useState<string>('');
+
+  // Load projects from localStorage
+  useEffect(() => {
+    const savedProjects = localStorage.getItem('projects');
+    if (savedProjects) {
+      try {
+        const parsed = JSON.parse(savedProjects);
+        setProjects(parsed.map((p: any) => ({ id: p.id, name: p.name })));
+      } catch (e) {
+        setProjects([]);
+      }
+    }
+  }, []);
 
   // Load saved integrations from localStorage
   const loadIntegrations = () => {
@@ -74,24 +89,84 @@ export function ProjectToolsIntegration() {
     localStorage.setItem('projectToolIntegrations', JSON.stringify(config));
   };
 
+  // Save integration for a specific project
+  const saveIntegrationForProject = (projectId: string, type: 'jira' | 'redmine', data: any) => {
+    const savedProjects = localStorage.getItem('projects');
+    if (!savedProjects) return;
+    let projectsArr = [];
+    try {
+      projectsArr = JSON.parse(savedProjects);
+    } catch {
+      return;
+    }
+    const updatedProjects = projectsArr.map((proj: any) => {
+      if (proj.id === projectId) {
+        let integrationData = { ...data };
+        if (type === 'jira') {
+          integrationData = {
+            url: data.url,
+            projectUrl: data.projectKey, // projectKey is used as Project URL
+            email: data.email,
+            apiToken: data.apiToken,
+            syncEnabled: data.syncEnabled,
+          };
+        } else if (type === 'redmine') {
+          integrationData = {
+            url: data.url,
+            projectUrl: data.projectId, // projectId is used as Project URL
+            apiKey: data.apiKey,
+            syncEnabled: data.syncEnabled,
+          };
+        }
+        return {
+          ...proj,
+          integrations: {
+            ...proj.integrations,
+            [type]: integrationData,
+          },
+        };
+      }
+      return proj;
+    });
+    localStorage.setItem('projects', JSON.stringify(updatedProjects));
+    // Reload projects to update UI
+    setProjects(updatedProjects.map((p: any) => ({ id: p.id, name: p.name })));
+  };
+
   // Handle form submission
   const onJiraSubmit = (data: z.infer<typeof jiraSchema>) => {
-    const updated = { ...integrations, jira: data };
-    setIntegrations(updated);
-    saveIntegrations(updated);
+    if (!selectedProject) {
+      toast({
+        title: 'Select a project',
+        description: 'Please select a project to save this integration.',
+        variant: 'destructive',
+      });
+      return;
+    }
+    saveIntegrationForProject(selectedProject, 'jira', data);
+    setSelectedProject('');
+    jiraForm.reset();
     toast({
-      title: 'Jira settings saved',
-      description: 'Your Jira integration has been configured successfully.',
+      title: 'Jira integration saved',
+      description: 'Jira integration has been saved for the selected project.',
     });
   };
 
   const onRedmineSubmit = (data: z.infer<typeof redmineSchema>) => {
-    const updated = { ...integrations, redmine: data };
-    setIntegrations(updated);
-    saveIntegrations(updated);
+    if (!selectedProject) {
+      toast({
+        title: 'Select a project',
+        description: 'Please select a project to save this integration.',
+        variant: 'destructive',
+      });
+      return;
+    }
+    saveIntegrationForProject(selectedProject, 'redmine', data);
+    setSelectedProject('');
+    redmineForm.reset();
     toast({
-      title: 'Redmine settings saved',
-      description: 'Your Redmine integration has been configured successfully.',
+      title: 'Redmine integration saved',
+      description: 'Redmine integration has been saved for the selected project.',
     });
   };
 
@@ -191,6 +266,22 @@ export function ProjectToolsIntegration() {
                   className="space-y-6"
                 >
                   <div className="space-y-4">
+                    <FormItem>
+                      <FormLabel>Project</FormLabel>
+                      <Select value={selectedProject} onValueChange={setSelectedProject}>
+                        <SelectTrigger className="w-full">
+                          <SelectValue placeholder="Select project" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {projects.length === 0 && (
+                            <SelectItem value="" disabled>No projects found</SelectItem>
+                          )}
+                          {projects.map((proj) => (
+                            <SelectItem key={proj.id} value={proj.id}>{proj.name}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </FormItem>
                     <FormField
                       control={jiraForm.control}
                       name="url"
@@ -253,6 +344,22 @@ export function ProjectToolsIntegration() {
                   className="space-y-6"
                 >
                   <div className="space-y-4">
+                    <FormItem>
+                      <FormLabel>Project</FormLabel>
+                      <Select value={selectedProject} onValueChange={setSelectedProject}>
+                        <SelectTrigger className="w-full">
+                          <SelectValue placeholder="Select project" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {projects.length === 0 && (
+                            <SelectItem value="" disabled>No projects found</SelectItem>
+                          )}
+                          {projects.map((proj) => (
+                            <SelectItem key={proj.id} value={proj.id}>{proj.name}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </FormItem>
                     <FormField
                       control={redmineForm.control}
                       name="url"
