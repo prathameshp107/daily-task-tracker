@@ -28,9 +28,20 @@ export async function GET(
       );
     }
 
+    // Normalize fields for frontend
+    const normalized = {
+      ...project,
+      startDate: project.startDate ? new Date(project.startDate).toISOString() : null,
+      endDate: project.endDate ? new Date(project.endDate).toISOString() : null,
+      createdAt: project.createdAt ? new Date(project.createdAt).toISOString() : null,
+      updatedAt: project.updatedAt ? new Date(project.updatedAt).toISOString() : null,
+      client: project.client || '-',
+      status: project.status || '-',
+    };
+
     return NextResponse.json({
       success: true,
-      data: project
+      data: normalized
     });
   } catch (error) {
     console.error('Error fetching project:', error);
@@ -121,9 +132,21 @@ export async function PUT(
       );
     }
 
+    // Normalize fields for frontend
+    const project = result;
+    const normalized = {
+      ...project,
+      startDate: project.startDate ? new Date(project.startDate).toISOString() : null,
+      endDate: project.endDate ? new Date(project.endDate).toISOString() : null,
+      createdAt: project.createdAt ? new Date(project.createdAt).toISOString() : null,
+      updatedAt: project.updatedAt ? new Date(project.updatedAt).toISOString() : null,
+      client: project.client || '-',
+      status: project.status || '-',
+    };
+
     return NextResponse.json({
       success: true,
-      data: result,
+      data: normalized,
       message: 'Project updated successfully'
     });
   } catch (error) {
@@ -167,12 +190,21 @@ export async function DELETE(
       _id: new ObjectId(params.id)
     });
 
-    // TODO: Consider if you want to delete related tasks as well
-    // await db.collection('tasks').deleteMany({ projectId: new ObjectId(params.id) });
+    // Optionally, return the deleted project normalized (if needed)
+    // const normalized = {
+    //   ...project,
+    //   startDate: project.startDate ? new Date(project.startDate).toISOString() : null,
+    //   endDate: project.endDate ? new Date(project.endDate).toISOString() : null,
+    //   createdAt: project.createdAt ? new Date(project.createdAt).toISOString() : null,
+    //   updatedAt: project.updatedAt ? new Date(project.updatedAt).toISOString() : null,
+    //   client: project.client || '-',
+    //   status: project.status || '-',
+    // };
 
     return NextResponse.json({
       success: true,
       message: 'Project deleted successfully'
+      // , data: normalized
     });
   } catch (error) {
     console.error('Error deleting project:', error);

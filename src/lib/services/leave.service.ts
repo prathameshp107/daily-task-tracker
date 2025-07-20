@@ -28,7 +28,7 @@ export const leaveService = {
   /**
    * Get all leave entries with optional filters
    */
-  async getLeaves(filters: LeaveFilters = {}): Promise<LeaveEntry[]> {
+  async getLeaves(filters: LeaveFilters = {}): Promise<any[]> {
     try {
       const params = new URLSearchParams();
       
@@ -36,7 +36,9 @@ export const leaveService = {
       if (filters.endDate) params.append('endDate', filters.endDate);
       if (filters.type) params.append('type', filters.type);
       
-      return await apiClient.get<LeaveEntry[]>(`/leaves?${params.toString()}`);
+      const response = await apiClient.get(`/leaves?${params.toString()}`);
+      // Return only the array, not the whole response object
+      return response.data.data || [];
     } catch (error) {
       console.error('Failed to fetch leave entries:', error);
       throw error;

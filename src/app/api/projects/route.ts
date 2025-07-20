@@ -18,9 +18,20 @@ export async function GET(req: NextRequest) {
       .sort({ createdAt: -1 })
       .toArray();
 
+    // Normalize fields for frontend
+    const normalized = projects.map(project => ({
+      ...project,
+      startDate: project.startDate ? new Date(project.startDate).toISOString() : null,
+      endDate: project.endDate ? new Date(project.endDate).toISOString() : null,
+      createdAt: project.createdAt ? new Date(project.createdAt).toISOString() : null,
+      updatedAt: project.updatedAt ? new Date(project.updatedAt).toISOString() : null,
+      client: project.client || '-',
+      status: project.status || '-',
+    }));
+
     return NextResponse.json({
       success: true,
-      data: projects
+      data: normalized
     });
   } catch (error) {
     console.error('Error fetching projects:', error);

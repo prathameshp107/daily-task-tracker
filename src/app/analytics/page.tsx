@@ -37,8 +37,8 @@ export default function AnalyticsPage() {
         setLeaves(leaveDates);
 
         // Fetch analytics trends
-        const trendsData = await analyticsService.getTrends('productivity');
-        setTrends(trendsData);
+        const trendsResponse = await analyticsService.getProductivityTrends();
+        setTrends(Array.isArray(trendsResponse.data) ? trendsResponse.data : []);
 
       } catch (err) {
         console.error('Failed to fetch analytics data:', err);
