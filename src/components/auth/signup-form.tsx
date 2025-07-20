@@ -19,6 +19,7 @@ import {
 } from '../ui/form'
 
 import { registerSchema, type RegisterFormData } from '../../lib/validations/auth'
+import { authService } from '../../lib/services/auth.service';
 
 /**
  * Signup form component with ShadCN UI components
@@ -51,8 +52,11 @@ export function SignupForm() {
     setSuccess(false)
     setIsLoading(true)
     try {
-      // TODO: Implement registration logic (call API)
-      // Example: await AuthService.register(data)
+      await authService.register({
+        name: data.name,
+        email: data.email,
+        password: data.password,
+      })
       setSuccess(true)
     } catch (err: any) {
       setError(err.message || 'Registration failed')

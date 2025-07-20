@@ -4,299 +4,318 @@ import { useState, useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
-import { addMonths, format, startOfMonth, endOfMonth, eachDayOfInterval, isWeekend } from 'date-fns';
 import { Button } from '@/components/ui/button';
-import { Calendar } from '@/components/ui/calendar';
-import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Input } from '@/components/ui/input';
-import { CalendarIcon, Plus, Trash2 } from 'lucide-react';
-import { cn } from '@/lib/utils';
+import { Label } from '@/components/ui/label';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Textarea } from '@/components/ui/textarea';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { Badge } from '@/components/ui/badge';
+import { Pencil, Trash2, Plus, Loader2 } from 'lucide-react';
 import { toast } from '@/components/ui/use-toast';
+import { leaveService } from '@/lib/services';
 
 const leaveTypes = [
-  { id: 'vacation', name: 'Vacation' },
-  { id: 'sick', name: 'Sick Leave' },
-  { id: 'personal', name: 'Personal Day' },
-  { id: 'holiday', name: 'Public Holiday' },
-  { id: 'other', name: 'Other' },
+  { id: 'annual', label: 'Annual Leave', color: 'bg-blue-500' },
+  { id: 'sick', label: 'Sick Leave', color: 'bg-red-500' },
+  { id: 'personal', label: 'Personal Leave', color: 'bg-green-500' },
+  { id: 'maternity', label: 'Maternity Leave', color: 'bg-pink-500' },
+  { id: 'paternity', label: 'Paternity Leave', color: 'bg-purple-500' },
+  { id: 'other', label: 'Other', color: 'bg-gray-500' },
 ];
 
 const leaveSchema = z.object({
-  leaveType: z.string().min(1, 'Required'),
-  leaveDate: z.date(),
+  date: z.string().min(1, 'Date is required'),
+  type: z.string().min(1, 'Leave type is required'),
   notes: z.string().optional(),
 });
 
 type LeaveFormValues = z.infer<typeof leaveSchema>;
 
 interface LeaveEntry {
-  id: string;
-  leaveType: string;
-  leaveDate: Date;
+  _id: string;
+  date: string;
+  type: string;
   notes?: string;
 }
 
-const MONTHS = [
-  'January', 'February', 'March', 'April', 'May', 'June',
-  'July', 'August', 'September', 'October', 'November', 'December'
-];
-
 export function LeaveManagement() {
-  const [date, setDate] = useState<Date>(new Date());
-  const [selectedMonth, setSelectedMonth] = useState<string>(MONTHS[new Date().getMonth()]);
   const [leaves, setLeaves] = useState<LeaveEntry[]>([]);
-  const [isLoading, setIsLoading] = useState(false);
-  const [leaveDatePopoverOpen, setLeaveDatePopoverOpen] = useState(false);
+  const [isEditing, setIsEditing] = useState(false);
+  const [isFormOpen, setIsFormOpen] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [currentLeave, setCurrentLeave] = useState<LeaveEntry | null>(null);
 
   const form = useForm<LeaveFormValues>({
     resolver: zodResolver(leaveSchema),
     defaultValues: {
-      leaveType: '',
-      leaveDate: new Date(),
+      date: new Date().toISOString().split('T')[0],
+      type: '',
       notes: '',
     },
   });
 
+  // Load leaves from service
   useEffect(() => {
-    // Load saved leaves
-    const savedLeaves = localStorage.getItem('leaveManagement');
-    if (savedLeaves) {
+    const loadLeaves = async () => {
       try {
-        const parsedLeaves = JSON.parse(savedLeaves);
-        // Convert string dates back to Date objects
-        const processedLeaves: LeaveEntry[] = parsedLeaves.map((leave: Record<string, unknown>) => ({
-          ...leave,
-          leaveDate: new Date(leave.leaveDate as string),
-        }));
-        setLeaves(processedLeaves);
-      } catch (e) {
-        console.error('Failed to parse saved leaves', e);
+        setLoading(true);
+        setError(null);
+        const leavesData = await leaveService.getLeaves();
+        setLeaves(leavesData);
+      } catch (err) {
+        console.error('Failed to load leaves:', err);
+        const errorMessage = err instanceof Error ? err.message : 'Failed to load leaves';
+        setError(errorMessage);
+        toast({
+          variant: 'destructive',
+          title: 'Error',
+          description: errorMessage,
+        });
+      } finally {
+        setLoading(false);
       }
-    }
-  }, []);
-
-  const calculateWorkingDays = (startDate: Date, endDate: Date) => {
-    const days = eachDayOfInterval({ start: startDate, end: endDate });
-    return days.filter(day => !isWeekend(day)).length;
-  };
-
-  const onSubmit = (data: LeaveFormValues) => {
-    const newLeave: LeaveEntry = {
-      id: Date.now().toString(),
-      leaveType: data.leaveType,
-      leaveDate: data.leaveDate,
-      notes: data.notes,
     };
 
-    const updatedLeaves = [...leaves, newLeave];
-    setLeaves(updatedLeaves);
-    saveLeaves(updatedLeaves);
-    form.reset();
-    toast('Leave added: Your leave has been scheduled.');
+    loadLeaves();
+  }, []);
+
+  const onSubmit = async (data: LeaveFormValues) => {
+    try {
+      if (isEditing && currentLeave) {
+        // Update existing leave
+        const updatedLeave = await leaveService.updateLeave(currentLeave._id, {
+          date: data.date,
+          type: data.type,
+          notes: data.notes || '',
+        });
+        
+        setLeaves(leaves.map(leave => 
+          leave._id === currentLeave._id ? updatedLeave : leave
+        ));
+        
+        toast({
+          title: 'Success',
+          description: 'Leave updated successfully.',
+        });
+      } else {
+        // Add new leave
+        const newLeave = await leaveService.createLeave({
+          date: data.date,
+          type: data.type,
+          notes: data.notes || '',
+        });
+        
+        setLeaves([...leaves, newLeave]);
+        toast({
+          title: 'Success',
+          description: 'Leave added successfully.',
+        });
+      }
+      
+      // Reset form and close it
+      form.reset();
+      setIsFormOpen(false);
+      setIsEditing(false);
+      setCurrentLeave(null);
+    } catch (err) {
+      console.error('Failed to save leave:', err);
+      toast({
+        variant: 'destructive',
+        title: 'Error',
+        description: 'Failed to save leave. Please try again.',
+      });
+    }
   };
 
-  const deleteLeave = (id: string) => {
-    const updatedLeaves = leaves.filter(leave => leave.id !== id);
-    setLeaves(updatedLeaves);
-    saveLeaves(updatedLeaves);
-    toast('Leave deleted: The leave entry has been removed.');
-  };
-
-  const saveLeaves = (leavesToSave: LeaveEntry[]) => {
-    localStorage.setItem('leaveManagement', JSON.stringify(leavesToSave));
-  };
-
-  const getLeavesByMonth = (monthName: string) => {
-    const monthIndex = MONTHS.indexOf(monthName);
-    return leaves.filter(leave => {
-      return (
-        leave.leaveDate.getMonth() === monthIndex &&
-        leave.leaveDate.getFullYear() === date.getFullYear()
-      );
+  const editLeave = (leave: LeaveEntry) => {
+    form.reset({
+      date: leave.date,
+      type: leave.type,
+      notes: leave.notes || '',
     });
+    setCurrentLeave(leave);
+    setIsEditing(true);
+    setIsFormOpen(true);
   };
 
-  const currentMonthLeaves = getLeavesByMonth(selectedMonth);
-  const totalLeavesCount = currentMonthLeaves.length;
-  const totalLeaveDays = currentMonthLeaves.length;
-
-  const total = 20; // This would typically come from user settings
-  const used = leaves.length;
-  const remaining = total - used;
-  const leaveBalance = {
-    total,
-    used,
-    remaining,
+  const deleteLeave = async (id: string) => {
+    if (confirm('Are you sure you want to delete this leave entry?')) {
+      try {
+        await leaveService.deleteLeave(id);
+        setLeaves(leaves.filter(leave => leave._id !== id));
+        toast({
+          title: 'Success',
+          description: 'Leave deleted successfully.',
+        });
+      } catch (err) {
+        console.error('Failed to delete leave:', err);
+        toast({
+          variant: 'destructive',
+          title: 'Error',
+          description: 'Failed to delete leave. Please try again.',
+        });
+      }
+    }
   };
+
+  const getTypeBadge = (typeId: string) => {
+    const type = leaveTypes.find(t => t.id === typeId);
+    return (
+      <Badge 
+        className={`${type?.color || 'bg-gray-500'} text-white`}
+        variant="outline"
+      >
+        {type?.label || typeId}
+      </Badge>
+    );
+  };
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-32">
+        <div className="flex items-center space-x-2">
+          <Loader2 className="h-6 w-6 animate-spin text-blue-600" />
+          <span className="text-gray-600 dark:text-gray-400">
+            Loading leaves...
+          </span>
+        </div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-4">
+        <h3 className="text-lg font-semibold text-red-600 dark:text-red-400 mb-2">
+          Error Loading Leaves
+        </h3>
+        <p className="text-red-700 dark:text-red-300 mb-4">
+          {error}
+        </p>
+        <Button 
+          onClick={() => window.location.reload()} 
+          variant="outline"
+          size="sm"
+          className="border-red-300 text-red-700 hover:bg-red-50"
+        >
+          Try Again
+        </Button>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
-      {/* Month Dropdown at the top for all sections */}
-      <div className="flex gap-2 items-center mb-4">
-        <span className="text-sm font-medium">Month:</span>
-        <select
-          className="border rounded px-2 py-1 text-sm"
-          value={selectedMonth}
-          onChange={e => setSelectedMonth(e.target.value)}
-        >
-          {MONTHS.map(m => (
-            <option key={m} value={m}>{m}</option>
-          ))}
-        </select>
-      </div>
+      <h2 className="text-2xl font-bold">Leave Management</h2>
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-        <div className="p-4 border rounded-lg">
-          <h3 className="text-sm font-medium text-muted-foreground">Total Available Days</h3>
-          <p className="text-2xl font-bold">{leaveBalance.total} days</p>
-        </div>
-        <div className="p-4 border rounded-lg">
-          <h3 className="text-sm font-medium text-muted-foreground">Leave Days</h3>
-          <p className="text-2xl font-bold text-amber-600">{leaveBalance.used} days</p>
-        </div>
-        <div className="p-4 border rounded-lg">
-          <h3 className="text-sm font-medium text-muted-foreground">Remaining</h3>
-          <p className="text-2xl font-bold text-green-600">{leaveBalance.remaining} days</p>
-        </div>
-      </div>
+      <Button onClick={() => setIsFormOpen(true)} className="w-full">
+        <Plus className="mr-2 h-4 w-4" />
+        Add New Leave
+      </Button>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <div>
-          <h3 className="text-lg font-medium mb-4">Add Leave</h3>
-          <Form {...form}>
-            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4" autoComplete="new-password">
-              {/* Leave type dropdown at the top of the form */}
-              <FormField
-                control={form.control}
-                name="leaveType"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Leave Type</FormLabel>
-                    <Select onValueChange={field.onChange} defaultValue={field.value}>
-                      <FormControl>
-                        <SelectTrigger>
-                          <SelectValue placeholder="Select leave type" />
-                        </SelectTrigger>
-                      </FormControl>
-                      <SelectContent>
-                        {leaveTypes.map((type) => (
-                          <SelectItem key={type.id} value={type.id}>
-                            {type.name}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                    <FormMessage />
-                  </FormItem>
+      {isFormOpen && (
+        <div className="mt-6 p-6 border rounded-lg shadow-sm">
+          <h3 className="text-lg font-medium mb-4">{isEditing ? 'Edit Leave' : 'Add New Leave'}</h3>
+          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <Label htmlFor="date" className="text-sm font-medium">Date</Label>
+                <Input
+                  id="date"
+                  type="date"
+                  {...form.register('date')}
+                  className="mt-1"
+                />
+                {form.formState.errors.date && (
+                  <p className="text-red-500 text-xs mt-1">{form.formState.errors.date.message}</p>
                 )}
-              />
-              <FormField
-                control={form.control}
-                name="leaveDate"
-                render={({ field }) => (
-                  <FormItem className="flex flex-col">
-                    <FormLabel>Leave Date</FormLabel>
-                    <Popover open={leaveDatePopoverOpen} onOpenChange={setLeaveDatePopoverOpen}>
-                      <PopoverTrigger asChild>
-                        <Button
-                          variant="outline"
-                          className={cn(
-                            "w-full justify-start text-left font-normal",
-                            !field.value && "text-muted-foreground"
-                          )}
-                        >
-                          {field.value
-                            ? format(field.value, "PPP")
-                            : "Pick a date"}
-                        </Button>
-                      </PopoverTrigger>
-                      <PopoverContent className="w-auto p-0" align="start">
-                        <Calendar
-                          mode="single"
-                          selected={field.value}
-                          onSelect={val => {
-                            field.onChange(val);
-                            if (val) setLeaveDatePopoverOpen(false);
-                          }}
-                          initialFocus
-                          captionLayout="dropdown"
-                        />
-                      </PopoverContent>
-                    </Popover>
-                    <FormMessage />
-                  </FormItem>
+              </div>
+              <div>
+                <Label htmlFor="type" className="text-sm font-medium">Leave Type</Label>
+                <Select onValueChange={form.setValue} defaultValue={form.watch('type')}>
+                  <SelectTrigger className="mt-1">
+                    <SelectValue placeholder="Select a leave type" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {leaveTypes.map((type) => (
+                      <SelectItem key={type.id} value={type.id}>
+                        {type.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                {form.formState.errors.type && (
+                  <p className="text-red-500 text-xs mt-1">{form.formState.errors.type.message}</p>
                 )}
-              />
+              </div>
+            </div>
 
-              <FormField
-                control={form.control}
-                name="notes"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Notes (Optional)</FormLabel>
-                    <FormControl>
-                      <Input placeholder="Add any additional information" {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
+            <div>
+              <Label htmlFor="notes" className="text-sm font-medium">Notes (Optional)</Label>
+              <Textarea
+                id="notes"
+                {...form.register('notes')}
+                className="mt-1"
               />
+            </div>
 
-              <Button type="submit" className="w-full">
+            <Button type="submit" className="w-full">
+              {loading ? (
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              ) : (
                 <Plus className="mr-2 h-4 w-4" />
-                Add Leave
-              </Button>
-            </form>
-          </Form>
+              )}
+              {isEditing ? 'Update Leave' : 'Add Leave'}
+            </Button>
+          </form>
         </div>
+      )}
 
-        <div>
-          <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center mb-4 gap-2">
-            <h3 className="text-lg font-medium">Add Leaves</h3>
-          </div>
-          <div className="flex gap-4 mb-2">
-            <div className="p-2 bg-blue-50 rounded text-blue-700 text-xs font-medium">
-              Total Leaves: {totalLeavesCount}
-            </div>
-            <div className="p-2 bg-green-50 rounded text-green-700 text-xs font-medium">
-              Total Days on Leave: {totalLeaveDays}
-            </div>
-          </div>
-          {currentMonthLeaves.length > 0 ? (
-            <div className="space-y-2">
-              {currentMonthLeaves.map((leave) => (
-                <div key={leave.id} className="p-4 border rounded-lg flex justify-between items-center">
-                  <div>
-                    <div className="font-medium">
-                      {leaveTypes.find(t => t.id === leave.leaveType)?.name || leave.leaveType}
-                    </div>
-                    <div className="text-sm text-muted-foreground">
-                      {format(new Date(leave.leaveDate), 'PPP')}
-                    </div>
-                    {leave.notes && (
-                      <p className="text-sm text-muted-foreground mt-1">{leave.notes}</p>
-                    )}
-                  </div>
+      <h3 className="text-lg font-medium mb-4">Leave History</h3>
+      {leaves.length === 0 ? (
+        <p>No leave history yet. Add your first leave!</p>
+      ) : (
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead>Date</TableHead>
+              <TableHead>Type</TableHead>
+              <TableHead>Notes</TableHead>
+              <TableHead className="text-right">Actions</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {leaves.map((leave) => (
+              <TableRow key={leave._id}>
+                <TableCell>{new Date(leave.date).toLocaleDateString()}</TableCell>
+                <TableCell>
+                  {getTypeBadge(leave.type)}
+                </TableCell>
+                <TableCell>{leave.notes || 'No notes'}</TableCell>
+                <TableCell className="text-right">
                   <Button
                     variant="ghost"
                     size="icon"
+                    onClick={() => editLeave(leave)}
+                  >
+                    <Pencil className="h-4 w-4" />
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    onClick={() => deleteLeave(leave._id)}
                     className="text-red-500 hover:bg-red-50"
-                    onClick={() => deleteLeave(leave.id)}
                   >
                     <Trash2 className="h-4 w-4" />
                   </Button>
-                </div>
-              ))}
-            </div>
-          ) : (
-            <div className="text-center py-8 border rounded-lg">
-              <p className="text-muted-foreground">No leaves scheduled for {selectedMonth} {date.getFullYear()}</p>
-            </div>
-          )}
-        </div>
-      </div>
+                </TableCell>
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
+      )}
     </div>
   );
 }

@@ -1,123 +1,87 @@
 'use client'
 
-import { useState, useEffect } from 'react'
-import { Button } from '@/components/ui/button'
-import { Dialog, DialogContent, DialogTitle, DialogTrigger } from '@/components/ui/dialog'
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
-import { TaskForm } from '@/components/task-form'
-import { TaskList } from '@/components/task-list'
-import { Navbar } from '@/components/navbar'
-import { Plus, X, FolderOpen } from 'lucide-react'
-import { exportDashboardAndAnalyticsToExcel } from '@/lib/export/excel';
-import { testTasks, testLeaves } from '@/lib/analytics/test-data';
-import { useProductivityMetrics } from '@/hooks/useProductivityMetrics';
+import { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
+import { Button } from '@/components/ui/button';
+import { Dialog, DialogContent, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { TaskForm } from '@/components/task-form';
+import TaskList from '@/components/task-list';
+import { Navbar } from '@/components/navbar';
+import { Plus, X, FolderOpen, Loader2 } from 'lucide-react';
 import { format } from 'date-fns';
+import { taskService, projectService } from '@/lib/services';
+import { useToast } from '@/components/ui/use-toast';
+import { Task, Project, isLegacyTask, toLegacyTask, fromLegacyTask } from '@/lib/types';
 
-interface Task {
-  taskId: string
-  taskType: string
-  description: string
-  totalHours: number
-  approvedHours: number
-  project: string
-  month: string
-  note?: string
-  status: 'todo' | 'in-progress' | 'done'
-  completed: boolean
-}
-
-/**
- * Dashboard content component
- * Contains the main task management interface
- */
-interface Project {
-  id: string;
-  name: string;
-  status: string;
-  color: string;
+interface TaskFormData {
+  taskId: string;
+  taskType: string;
+  description: string;
+  totalHours: number;
+  approvedHours: number;
+  project: string;
+  month: string;
+  note: string;
+  status: 'todo' | 'in-progress' | 'done';
 }
 
 export function DashboardContent() {
-  const [tasks, setTasks] = useState<Task[]>([
-    {
-      taskId: 'TASK-001',
-      taskType: 'Development',
-      description: 'Implement user authentication system',
-      totalHours: 16,
-      approvedHours: 20,
-      project: 'Project Alpha',
-      month: 'July',
-      note: 'Need to implement JWT token refresh',
-      status: 'in-progress',
-      completed: false,
-    },
-    {
-      taskId: 'TASK-002',
-      taskType: 'Bug Fix',
-      description: 'Fix login page responsiveness',
-      totalHours: 2,
-      approvedHours: 2,
-      project: 'Project Alpha',
-      month: 'July',
-      note: 'Test on mobile devices',
-      status: 'todo',
-      completed: false,
-    },
-    {
-      taskId: 'TASK-003',
-      taskType: 'Design',
-      description: 'Create new dashboard layout',
-      totalHours: 8,
-      approvedHours: 8,
-      project: 'Project Beta',
-      month: 'June',
-      note: 'Use Tailwind CSS',
-      status: 'done',
-      completed: true,
-    },
-    {
-      taskId: 'TASK-004',
-      taskType: 'Development',
-      description: 'Implement user authentication system',
-      totalHours: 16,
-      approvedHours: 20,
-      project: 'Project Alpha',
-      month: 'July',
-      note: 'Need to implement JWT token refresh',
-      status: 'in-progress',
-      completed: false,
-    },
-    {
-      taskId: 'TASK-005',
-      taskType: 'Bug Fix',
-      description: 'Fix login',
-      totalHours: 2,
-      approvedHours: 2,
-      project: 'Project Gamma',
-      month: 'July',
-      note: 'Test on mobile devices',
-      status: 'todo',
-      completed: false,
-    },
-  ])
-  const [projects, setProjects] = useState<Project[]>([])
-  const [selectedProject, setSelectedProject] = useState<string>('all')
-  const [filteredTasks, setFilteredTasks] = useState<Task[]>(tasks)
-  const [isModalOpen, setIsModalOpen] = useState(false)
-  const [currentTask, setCurrentTask] = useState<Task | null>(null)
+  const { toast } = useToast();
+  const router = useRouter();
+  const [tasks, setTasks] = useState<Task[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [projects, setProjects] = useState<Project[]>([]);
+  const [selectedProject, setSelectedProject] = useState<string>('all');
+  const [filteredTasks, setFilteredTasks] = useState<Task[]>([]);
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [currentTask, setCurrentTask] = useState<Task | null>(null);
 
-  // Load projects from localStorage
   useEffect(() => {
-    const savedProjects = localStorage.getItem('projects')
-    if (savedProjects) {
+    const fetchData = async () => {
       try {
-        const projectsData = JSON.parse(savedProjects)
-        setProjects(projectsData)
-      } catch (e) {
-        console.error('Failed to parse saved projects', e)
+        setLoading(true);
+        
+        // Fetch tasks
+        const tasksData = await taskService.getTasks({});
+        setTasks(tasksData);
+        
+        // Fetch projects
+        const projectsData = await projectService.getProjects();
+        setProjects(projectsData);
+        
+      } catch (err) {
+        console.error('Failed to fetch data:', err);
+        const errorMessage = err instanceof Error ? err.message : 'Failed to load data';
+        setError(errorMessage);
+        toast({
+          variant: 'destructive',
+          title: 'Error',
+          description: errorMessage,
+        });
+        
+        // Redirect to login if unauthorized
+        if ((err as any)?.response?.status === 401) {
+          router.push('/login');
+        }
+      } finally {
+        setLoading(false);
       }
+    };
+
+    fetchData();
+  }, [toast, router]);
+
+  // Filter tasks when project selection changes
+  useEffect(() => {
+    if (selectedProject === 'all') {
+      setFilteredTasks(tasks);
+    } else {
+      const filtered = tasks.filter(task => task.projectId === selectedProject);
+      setFilteredTasks(filtered);
     }
-  }, [])
+  }, [tasks, selectedProject]);
 
   // Filter tasks based on selected project
   useEffect(() => {
@@ -129,27 +93,75 @@ export function DashboardContent() {
     }
   }, [tasks, selectedProject])
 
-  const addTask = (taskData: Omit<Task, 'taskId' | 'completed'>) => {
-    const newTask: Task = {
-      taskId: `TASK-${Math.floor(1000 + Math.random() * 9000)}`, // Generate a random task ID
-      ...taskData,
-      completed: false,
+  const addTask = async (taskData: TaskFormData) => {
+    try {
+      const newTask = await taskService.createTask({
+        title: taskData.description,
+        description: taskData.description,
+        type: taskData.taskType,
+        estimatedHours: taskData.totalHours,
+        actualHours: taskData.approvedHours,
+        project: taskData.project,
+        month: taskData.month,
+        status: taskData.status,
+        note: taskData.note,
+        completed: false,
+      });
+      setTasks([...tasks, newTask]);
+      setIsModalOpen(false);
+      toast({
+        title: 'Success',
+        description: 'Task created successfully',
+      });
+    } catch (err) {
+      console.error('Failed to create task:', err);
+      toast({
+        variant: 'destructive',
+        title: 'Error',
+        description: 'Failed to create task. Please try again.',
+      });
     }
-    setTasks([...tasks, newTask])
-    setIsModalOpen(false) // Close modal after adding task
   }
 
-  const toggleTask = (taskId: string) => {
-    setTasks(
-      tasks.map((task: Task) =>
-        task.taskId === taskId ? { ...task, completed: !task.completed } : task
-      )
-    )
+  const toggleTask = async (taskId: string) => {
+    try {
+      const task = tasks.find(t => t._id === taskId);
+      if (!task) return;
+      
+      const updatedTask = await taskService.updateTask(taskId, {
+        ...task,
+        completed: !task.completed,
+        status: !task.completed ? 'done' : 'todo' as const,
+      });
+      
+      setTasks(tasks.map(t => t._id === taskId ? updatedTask : t));
+    } catch (err) {
+      console.error('Failed to update task:', err);
+      toast({
+        variant: 'destructive',
+        title: 'Error',
+        description: 'Failed to update task status. Please try again.',
+      });
+    }
   }
 
-  const handleDeleteTask = (taskId: string) => {
+  const handleDeleteTask = async (taskId: string) => {
     if (confirm('Are you sure you want to delete this task?')) {
-      setTasks(tasks.filter((task) => task.taskId !== taskId))
+      try {
+        await taskService.deleteTask(taskId);
+        setTasks(tasks.filter(task => task._id !== taskId));
+        toast({
+          title: 'Success',
+          description: 'Task deleted successfully',
+        });
+      } catch (err) {
+        console.error('Failed to delete task:', err);
+        toast({
+          variant: 'destructive',
+          title: 'Error',
+          description: 'Failed to delete task. Please try again.',
+        });
+      }
     }
   }
 
@@ -158,20 +170,27 @@ export function DashboardContent() {
     setIsModalOpen(true)
   }
 
-  // Prepare analytics data for export
-  const currentMonth = format(new Date(), 'MMMM');
-  const analyticsTasks = testTasks.filter(task => task.month.toLowerCase() === currentMonth.toLowerCase());
-  const metrics = useProductivityMetrics(analyticsTasks);
-  const trends: any[] = [];
-  // Optionally, you can generate trends as in analytics page
-  const analyticsData = {
-    metrics,
-    trends,
-    leaves: testLeaves,
-  };
-
   const handleExport = async () => {
-    await exportDashboardAndAnalyticsToExcel(tasks, analyticsData);
+    try {
+      // For now, we'll just export the tasks
+      // In a real app, you would fetch analytics data here
+      const blob = new Blob([JSON.stringify(tasks, null, 2)], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `tasks-${new Date().toISOString().split('T')[0]}.json`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    } catch (err) {
+      console.error('Export failed:', err);
+      toast({
+        variant: 'destructive',
+        title: 'Export Failed',
+        description: 'Failed to export tasks. Please try again.',
+      });
+    }
   };
 
   return (
@@ -248,31 +267,41 @@ export function DashboardContent() {
                 <hr className="my-4" />
                 <TaskForm
                   task={currentTask}
-                  onSubmit={(taskData) => {
+                  onSubmit={async (taskData) => {
                     if (currentTask) {
-                      setTasks(
-                        tasks.map((t) =>
-                          t.taskId === currentTask.taskId
-                            ? {
-                                ...taskData,
-                                taskId: currentTask.taskId,
-                                completed: t.completed,
-                              }
-                            : t
-                        )
-                      );
+                      // Update existing task
+                      try {
+                        const updatedTask = await taskService.updateTask(currentTask._id, {
+                          title: taskData.description,
+                          description: taskData.description,
+                          type: taskData.taskType,
+                          estimatedHours: taskData.totalHours,
+                          actualHours: taskData.approvedHours,
+                          project: taskData.project,
+                          month: taskData.month,
+                          status: taskData.status,
+                          note: taskData.note,
+                          completed: currentTask.completed,
+                        });
+                        setTasks(tasks.map(t => t._id === currentTask._id ? updatedTask : t));
+                        setIsModalOpen(false);
+                        setCurrentTask(null);
+                        toast({
+                          title: 'Success',
+                          description: 'Task updated successfully',
+                        });
+                      } catch (err) {
+                        console.error('Failed to update task:', err);
+                        toast({
+                          variant: 'destructive',
+                          title: 'Error',
+                          description: 'Failed to update task. Please try again.',
+                        });
+                      }
                     } else {
-                      setTasks([
-                        ...tasks,
-                        {
-                          ...taskData,
-                          taskId: `TASK-${String(tasks.length + 1).padStart(3, '0')}`,
-                          completed: false,
-                        },
-                      ]);
+                      // Create new task
+                      await addTask(taskData);
                     }
-                    setIsModalOpen(false);
-                    setCurrentTask(null);
                   }}
                   onCancel={() => {
                     setIsModalOpen(false);
@@ -285,14 +314,23 @@ export function DashboardContent() {
         </div>
 
         <div className="flex-1 overflow-hidden rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 shadow-sm" style={{ minHeight: 'unset' }}>
-          <div className="overflow-x-auto w-full">
-            <TaskList
-              tasks={filteredTasks}
-              onToggleTask={toggleTask}
-              onDeleteTask={handleDeleteTask}
-              onEditTask={handleEditTask}
-            />
-          </div>
+          {loading ? (
+            <div className="flex items-center justify-center p-8">
+              <Loader2 className="h-8 w-8 animate-spin text-gray-500" />
+              <span className="ml-2">Loading tasks...</span>
+            </div>
+          ) : error ? (
+            <div className="p-4 text-red-600 dark:text-red-400">{error}</div>
+          ) : (
+            <div className="overflow-x-auto w-full">
+              <TaskList
+                tasks={filteredTasks}
+                onToggleTask={toggleTask}
+                onDeleteTask={handleDeleteTask}
+                onEditTask={handleEditTask}
+              />
+            </div>
+          )}
         </div>
 
         <div className="mt-6 text-center text-sm text-muted-foreground" style={{ marginBottom: 0 }}>

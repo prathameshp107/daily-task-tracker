@@ -6,134 +6,138 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage, FormDescription } from '@/components/ui/form';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
-import { CheckCircle2, ExternalLink, AlertCircle } from 'lucide-react';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Switch } from '@/components/ui/switch';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { toast } from '@/components/ui/use-toast';
+import { Loader2 } from 'lucide-react';
+import { projectService, integrationService } from '@/lib/services';
+import { Project } from '@/lib/types';
 
-// Define the integration types
-const INTEGRATION_TYPES = [
-  { id: 'jira', name: 'Jira', icon: 'jira.png' },
-  { id: 'redmine', name: 'Redmine', icon: 'redmine.png' },
-  { id: 'asana', name: 'Asana', icon: 'asana.png' },
-  { id: 'trello', name: 'Trello', icon: 'trello.png' },
-];
-
-// Schema for Jira integration
 const jiraSchema = z.object({
-  url: z.string().url('Please enter a valid URL').min(1, 'Required'),
-  email: z.string().email('Please enter a valid email').min(1, 'Required'),
-  apiToken: z.string().min(1, 'Required'),
-  projectKey: z.string().min(1, 'Required'),
-  syncEnabled: z.boolean().default(true),
+  url: z.string().url('Please enter a valid URL'),
+  email: z.string().email('Please enter a valid email'),
+  apiToken: z.string().min(1, 'API token is required'),
+  projectKey: z.string().min(1, 'Project key is required'),
+  syncEnabled: z.boolean(),
 });
 
-// Schema for Redmine integration
 const redmineSchema = z.object({
-  url: z.string().url('Please enter a valid URL').min(1, 'Required'),
-  apiKey: z.string().min(1, 'Required'),
-  projectId: z.string().min(1, 'Required'),
-  syncEnabled: z.boolean().default(true),
+  url: z.string().url('Please enter a valid URL'),
+  apiKey: z.string().min(1, 'API key is required'),
+  projectId: z.string().min(1, 'Project ID is required'),
+  syncEnabled: z.boolean(),
 });
 
-type IntegrationType = 'jira' | 'redmine' | 'asana' | 'trello';
-type IntegrationConfig = {
-  jira: z.infer<typeof jiraSchema> | null;
-  redmine: z.infer<typeof redmineSchema> | null;
-  asana: any | null;
-  trello: any | null;
-};
+type IntegrationType = 'jira' | 'redmine';
+
+interface Integration {
+  url: string;
+  email?: string;
+  apiToken?: string;
+  apiKey?: string;
+  projectKey?: string;
+  projectId?: string;
+  syncEnabled: boolean;
+}
+
+interface ProjectIntegrations {
+  jira?: Integration;
+  redmine?: Integration;
+}
 
 export function ProjectToolsIntegration() {
-  const [activeTab, setActiveTab] = useState<IntegrationType>('jira');
-  const [integrations, setIntegrations] = useState<IntegrationConfig>({
-    jira: null,
-    redmine: null,
-    asana: null,
-    trello: null,
-  });
-  const [projects, setProjects] = useState<{ id: string; name: string }[]>([]);
+  const [projects, setProjects] = useState<Project[]>([]);
   const [selectedProject, setSelectedProject] = useState<string>('');
+  const [integrations, setIntegrations] = useState<ProjectIntegrations>({});
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
-  // Load projects from localStorage
+  // Load projects and integrations from service
   useEffect(() => {
-    const savedProjects = localStorage.getItem('projects');
-    if (savedProjects) {
+    const loadData = async () => {
       try {
-        const parsed = JSON.parse(savedProjects);
-        setProjects(parsed.map((p: any) => ({ id: p.id, name: p.name })));
-      } catch (e) {
-        setProjects([]);
+        setLoading(true);
+        setError(null);
+        
+        // Load projects
+        const projectsData = await projectService.getProjects();
+        setProjects(projectsData);
+        
+        // Load integrations (this would be per project in a real implementation)
+        // For now, we'll use a mock integration service
+        setIntegrations({
+          jira: {
+            url: '',
+            email: '',
+            apiToken: '',
+            projectKey: '',
+            syncEnabled: true,
+          },
+          redmine: {
+            url: '',
+            apiKey: '',
+            projectId: '',
+            syncEnabled: true,
+          },
+        });
+        
+      } catch (err) {
+        console.error('Failed to load data:', err);
+        const errorMessage = err instanceof Error ? err.message : 'Failed to load data';
+        setError(errorMessage);
+        toast({
+          variant: 'destructive',
+          title: 'Error',
+          description: errorMessage,
+        });
+      } finally {
+        setLoading(false);
       }
-    }
+    };
+
+    loadData();
   }, []);
 
-  // Load saved integrations from localStorage
-  const loadIntegrations = () => {
-    const savedIntegrations = localStorage.getItem('projectToolIntegrations');
-    if (savedIntegrations) {
-      try {
-        setIntegrations(JSON.parse(savedIntegrations));
-      } catch (e) {
-        console.error('Failed to parse saved integrations', e);
-      }
-    }
-  };
-
-  // Save integrations to localStorage
-  const saveIntegrations = (config: IntegrationConfig) => {
-    localStorage.setItem('projectToolIntegrations', JSON.stringify(config));
-  };
-
-  // Save integration for a specific project
-  const saveIntegrationForProject = (projectId: string, type: 'jira' | 'redmine', data: any) => {
-    const savedProjects = localStorage.getItem('projects');
-    if (!savedProjects) return;
-    let projectsArr = [];
+  const saveIntegrationForProject = async (projectName: string, type: IntegrationType, config: any) => {
     try {
-      projectsArr = JSON.parse(savedProjects);
-    } catch {
-      return;
-    }
-    const updatedProjects = projectsArr.map((proj: any) => {
-      if (proj.id === projectId) {
-        let integrationData = { ...data };
-        if (type === 'jira') {
-          integrationData = {
-            url: data.url,
-            projectUrl: data.projectKey, // projectKey is used as Project URL
-            email: data.email,
-            apiToken: data.apiToken,
-            syncEnabled: data.syncEnabled,
-          };
-        } else if (type === 'redmine') {
-          integrationData = {
-            url: data.url,
-            projectUrl: data.projectId, // projectId is used as Project URL
-            apiKey: data.apiKey,
-            syncEnabled: data.syncEnabled,
-          };
-        }
-        return {
-          ...proj,
-          integrations: {
-            ...proj.integrations,
-            [type]: integrationData,
-          },
-        };
+      // Find the project by name
+      const project = projects.find(p => p.name === projectName);
+      if (!project) {
+        toast({
+          variant: 'destructive',
+          title: 'Error',
+          description: 'Project not found.',
+        });
+        return;
       }
-      return proj;
-    });
-    localStorage.setItem('projects', JSON.stringify(updatedProjects));
-    // Reload projects to update UI
-    setProjects(updatedProjects.map((p: any) => ({ id: p.id, name: p.name })));
+
+      // Save integration to service
+      await integrationService.updateProjectIntegrations(project._id, {
+        [type]: config
+      });
+
+      // Update local state
+      setIntegrations(prev => ({
+        ...prev,
+        [type]: config
+      }));
+
+      toast({
+        title: 'Success',
+        description: `${type.charAt(0).toUpperCase() + type.slice(1)} integration saved for ${projectName}.`,
+      });
+    } catch (err) {
+      console.error('Failed to save integration:', err);
+      toast({
+        variant: 'destructive',
+        title: 'Error',
+        description: 'Failed to save integration. Please try again.',
+      });
+    }
   };
 
-  // Handle form submission
   const onJiraSubmit = (data: z.infer<typeof jiraSchema>) => {
     if (!selectedProject) {
       toast({
@@ -146,10 +150,6 @@ export function ProjectToolsIntegration() {
     saveIntegrationForProject(selectedProject, 'jira', data);
     setSelectedProject('');
     jiraForm.reset();
-    toast({
-      title: 'Jira integration saved',
-      description: 'Jira integration has been saved for the selected project.',
-    });
   };
 
   const onRedmineSubmit = (data: z.infer<typeof redmineSchema>) => {
@@ -164,34 +164,33 @@ export function ProjectToolsIntegration() {
     saveIntegrationForProject(selectedProject, 'redmine', data);
     setSelectedProject('');
     redmineForm.reset();
-    toast({
-      title: 'Redmine integration saved',
-      description: 'Redmine integration has been saved for the selected project.',
-    });
   };
 
   // Test connection to the service
-  const testConnection = (service: IntegrationType) => {
-    // In a real app, this would make an API call to test the connection
-    return new Promise<boolean>((resolve) => {
-      setTimeout(() => {
-        // Simulate a successful connection 90% of the time
-        const success = Math.random() > 0.1;
-        if (success) {
-          toast({
-            title: 'Connection successful',
-            description: `Successfully connected to ${service}.`,
-          });
-        } else {
-          toast({
-            title: 'Connection failed',
-            description: `Could not connect to ${service}. Please check your settings.`,
-            variant: 'destructive',
-          });
-        }
-        resolve(success);
-      }, 1500);
-    });
+  const testConnection = async (service: IntegrationType) => {
+    try {
+      const success = await integrationService.testConnection(service, integrations[service] || {});
+      
+      if (success) {
+        toast({
+          title: 'Connection successful',
+          description: `Successfully connected to ${service}.`,
+        });
+      } else {
+        toast({
+          title: 'Connection failed',
+          description: `Could not connect to ${service}. Please check your settings.`,
+          variant: 'destructive',
+        });
+      }
+    } catch (err) {
+      console.error('Connection test failed:', err);
+      toast({
+        title: 'Connection failed',
+        description: `Could not connect to ${service}. Please check your settings.`,
+        variant: 'destructive',
+      });
+    }
   };
 
   // Jira Form
@@ -217,10 +216,39 @@ export function ProjectToolsIntegration() {
     },
   });
 
-  // Load integrations on component mount
-  useState(() => {
-    loadIntegrations();
-  }, []);
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-32">
+        <div className="flex items-center space-x-2">
+          <Loader2 className="h-6 w-6 animate-spin text-blue-600" />
+          <span className="text-gray-600 dark:text-gray-400">
+            Loading integration settings...
+          </span>
+        </div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-4">
+        <h3 className="text-lg font-semibold text-red-600 dark:text-red-400 mb-2">
+          Error Loading Integrations
+        </h3>
+        <p className="text-red-700 dark:text-red-300 mb-4">
+          {error}
+        </p>
+        <Button 
+          onClick={() => window.location.reload()} 
+          variant="outline"
+          size="sm"
+          className="border-red-300 text-red-700 hover:bg-red-50"
+        >
+          Try Again
+        </Button>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -231,223 +259,160 @@ export function ProjectToolsIntegration() {
         </p>
       </div>
 
-      <Tabs 
-        value={activeTab} 
-        onValueChange={(value) => setActiveTab(value as IntegrationType)}
-        className="w-full"
-      >
-        <TabsList className="grid w-full grid-cols-4">
-          {INTEGRATION_TYPES.map((tool) => (
-            <TabsTrigger 
-              key={tool.id} 
-              value={tool.id}
-              className="flex items-center gap-2"
-            >
-              <span className="capitalize">{tool.name}</span>
-              {integrations[tool.id as keyof IntegrationConfig] && (
-                <CheckCircle2 className="h-3 w-3 text-green-500" />
-              )}
-            </TabsTrigger>
-          ))}
-        </TabsList>
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <Card>
+          <CardHeader>
+            <CardTitle>Jira Integration</CardTitle>
+            <CardDescription>
+              Connect your Jira account to sync issues and track time.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <Form {...jiraForm}>
+              <form 
+                onSubmit={jiraForm.handleSubmit(onJiraSubmit)}
+                className="space-y-6"
+              >
+                <div className="space-y-4">
+                  <FormItem>
+                    <FormLabel>Project</FormLabel>
+                    <Select value={selectedProject} onValueChange={setSelectedProject}>
+                      <SelectTrigger className="w-full">
+                        <SelectValue placeholder="Select project" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {projects.length === 0 && (
+                          <SelectItem value="" disabled>No projects found</SelectItem>
+                        )}
+                        {projects.map((proj) => (
+                          <SelectItem key={proj._id} value={proj.name}>{proj.name}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </FormItem>
+                  <FormField
+                    control={jiraForm.control}
+                    name="url"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Jira URL</FormLabel>
+                        <FormControl>
+                          <Input 
+                            placeholder="https://your-domain.atlassian.net" 
+                            {...field} 
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
 
-        <TabsContent value="jira" className="mt-6">
-          <Card>
-            <CardHeader>
-              <CardTitle>Jira Integration</CardTitle>
-              <CardDescription>
-                Connect your Jira account to sync issues and track time.
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <Form {...jiraForm}>
-                <form 
-                  onSubmit={jiraForm.handleSubmit(onJiraSubmit)}
-                  className="space-y-6"
-                >
-                  <div className="space-y-4">
-                    <FormItem>
-                      <FormLabel>Project</FormLabel>
-                      <Select value={selectedProject} onValueChange={setSelectedProject}>
-                        <SelectTrigger className="w-full">
-                          <SelectValue placeholder="Select project" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {projects.length === 0 && (
-                            <SelectItem value="" disabled>No projects found</SelectItem>
-                          )}
-                          {projects.map((proj) => (
-                            <SelectItem key={proj.id} value={proj.id}>{proj.name}</SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </FormItem>
-                    <FormField
-                      control={jiraForm.control}
-                      name="url"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Jira URL</FormLabel>
-                          <FormControl>
-                            <Input 
-                              placeholder="https://your-domain.atlassian.net" 
-                              {...field} 
-                            />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
+                  <FormField
+                    control={jiraForm.control}
+                    name="projectKey"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Project URL</FormLabel>
+                        <FormControl>
+                          <Input 
+                            placeholder="https://virtua-research.atlassian.net/jira/software/projects/IAC/boards/1" 
+                            {...field} 
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
 
-                    <FormField
-                      control={jiraForm.control}
-                      name="projectKey"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Project URL</FormLabel>
-                          <FormControl>
-                            <Input 
-                              placeholder="https://virtua-research.atlassian.net/jira/software/projects/IAC/boards/1" 
-                              {...field} 
-                            />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
+                </div>
 
-                  </div>
+                <div className="flex justify-between pt-2">
+                  <Button type="submit" disabled={jiraForm.formState.isSubmitting}>
+                    {jiraForm.formState.isSubmitting ? 'Saving...' : 'Save Settings'}
+                  </Button>
+                </div>
+              </form>
+            </Form>
+          </CardContent>
+        </Card>
 
-                  <div className="flex justify-between pt-2">
-                    <Button type="submit" disabled={jiraForm.formState.isSubmitting}>
-                      {jiraForm.formState.isSubmitting ? 'Saving...' : 'Save Settings'}
-                    </Button>
-                  </div>
-                </form>
-              </Form>
-            </CardContent>
-          </Card>
-        </TabsContent>
-
-        <TabsContent value="redmine" className="mt-6">
-          <Card>
-            <CardHeader>
-              <CardTitle>Redmine Integration</CardTitle>
-              <CardDescription>
-                Connect your Redmine instance to track issues and time entries.
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <Form {...redmineForm}>
-                <form 
-                  onSubmit={redmineForm.handleSubmit(onRedmineSubmit)}
-                  className="space-y-6"
-                >
-                  <div className="space-y-4">
-                    <FormItem>
-                      <FormLabel>Project</FormLabel>
-                      <Select value={selectedProject} onValueChange={setSelectedProject}>
-                        <SelectTrigger className="w-full">
-                          <SelectValue placeholder="Select project" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {projects.length === 0 && (
-                            <SelectItem value="" disabled>No projects found</SelectItem>
-                          )}
-                          {projects.map((proj) => (
-                            <SelectItem key={proj.id} value={proj.id}>{proj.name}</SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </FormItem>
-                    <FormField
-                      control={redmineForm.control}
-                      name="url"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Redmine URL</FormLabel>
-                          <FormControl>
-                            <Input 
-                              placeholder="https://redmine.example.com" 
-                              {...field} 
-                            />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
+        <Card>
+          <CardHeader>
+            <CardTitle>Redmine Integration</CardTitle>
+            <CardDescription>
+              Connect your Redmine instance to track issues and time entries.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <Form {...redmineForm}>
+              <form 
+                onSubmit={redmineForm.handleSubmit(onRedmineSubmit)}
+                className="space-y-6"
+              >
+                <div className="space-y-4">
+                  <FormItem>
+                    <FormLabel>Project</FormLabel>
+                    <Select value={selectedProject} onValueChange={setSelectedProject}>
+                      <SelectTrigger className="w-full">
+                        <SelectValue placeholder="Select project" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {projects.length === 0 && (
+                          <SelectItem value="" disabled>No projects found</SelectItem>
+                        )}
+                        {projects.map((proj) => (
+                          <SelectItem key={proj._id} value={proj.name}>{proj.name}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </FormItem>
+                  <FormField
+                    control={redmineForm.control}
+                    name="url"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Redmine URL</FormLabel>
+                        <FormControl>
+                          <Input 
+                            placeholder="https://redmine.example.com" 
+                            {...field} 
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
 
 
-                    <FormField
-                      control={redmineForm.control}
-                      name="projectId"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Project URL</FormLabel>
-                          <FormControl>
-                            <Input 
-                              placeholder="https://rm.virtuaresearch.com/projects/api-improvement" 
-                              {...field} 
-                            />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
+                  <FormField
+                    control={redmineForm.control}
+                    name="projectId"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Project URL</FormLabel>
+                        <FormControl>
+                          <Input 
+                            placeholder="https://rm.virtuaresearch.com/projects/api-improvement" 
+                            {...field} 
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
 
-                  </div>
+                </div>
 
-                  <div className="flex justify-between pt-2">
-                    <Button type="submit" disabled={redmineForm.formState.isSubmitting}>
-                      {redmineForm.formState.isSubmitting ? 'Saving...' : 'Save Settings'}
-                    </Button>
-                  </div>
-                </form>
-              </Form>
-            </CardContent>
-          </Card>
-        </TabsContent>
-
-        <TabsContent value="asana" className="mt-6">
-          <Card>
-            <CardHeader>
-              <CardTitle>Asana Integration</CardTitle>
-              <CardDescription>
-                Coming soon! Connect your Asana account to sync tasks and track time.
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="text-center py-12">
-              <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-blue-100">
-                <AlertCircle className="h-6 w-6 text-blue-600" />
-              </div>
-              <h3 className="mt-4 text-lg font-medium text-gray-900">Integration in development</h3>
-              <p className="mt-2 text-sm text-gray-500">
-                We're working on bringing Asana integration to you soon.
-              </p>
-            </CardContent>
-          </Card>
-        </TabsContent>
-
-        <TabsContent value="trello" className="mt-6">
-          <Card>
-            <CardHeader>
-              <CardTitle>Trello Integration</CardTitle>
-              <CardDescription>
-                Coming soon! Connect your Trello boards to track tasks and time.
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="text-center py-12">
-              <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-blue-100">
-                <AlertCircle className="h-6 w-6 text-blue-600" />
-              </div>
-              <h3 className="mt-4 text-lg font-medium text-gray-900">Integration in development</h3>
-              <p className="mt-2 text-sm text-gray-500">
-                We're working on bringing Trello integration to you soon.
-              </p>
-            </CardContent>
-          </Card>
-        </TabsContent>
-      </Tabs>
+                <div className="flex justify-between pt-2">
+                  <Button type="submit" disabled={redmineForm.formState.isSubmitting}>
+                    {redmineForm.formState.isSubmitting ? 'Saving...' : 'Save Settings'}
+                  </Button>
+                </div>
+              </form>
+            </Form>
+          </CardContent>
+        </Card>
+      </div>
     </div>
   );
 }

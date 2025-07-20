@@ -1,114 +1,134 @@
 "use client";
 
+import { useState, useEffect } from "react";
 import { ProtectedRoute } from "@/components/auth";
 import { Navbar } from "@/components/navbar";
 import { ProductivityMetrics } from "@/components/analytics/productivity-metrics";
 import { ProductivityTrends } from "@/components/analytics/productivity-trends";
 import { useProductivityMetrics } from "@/hooks/useProductivityMetrics";
-import { format } from "date-fns";
 import { exportDashboardAndAnalyticsToExcel } from '@/lib/export/excel';
-import { testTasks, testLeaves } from "@/lib/analytics/test-data";
 import { Button } from "@/components/ui/button";
-
-// Format test data to match the expected format
-const formatTestData = () => {
-  try {
-    const currentMonth = format(new Date(), 'MMMM');
-    console.log('Current month:', currentMonth);
-    
-    // Get current month's tasks (case-insensitive comparison)
-    const currentMonthTasks = testTasks.filter(task => 
-      task.month.toLowerCase() === currentMonth.toLowerCase()
-    );
-    
-    console.log('Total test tasks:', testTasks.length);
-    console.log('Current month tasks:', currentMonthTasks.length);
-    console.log('Test leaves:', testLeaves.length);
-
-    // Generate trend data for the last 6 months
-    const months = [];
-    const currentDate = new Date();
-    
-    for (let i = 5; i >= 0; i--) {
-      const date = new Date(currentDate.getFullYear(), currentDate.getMonth() - i, 1);
-      const monthName = format(date, 'MMMM');
-      
-      // Filter tasks for this month (case-insensitive comparison)
-      const monthTasks = testTasks.filter(task => 
-        task.month.toLowerCase() === monthName.toLowerCase()
-      );
-      
-      // Filter leaves for this month
-      const monthLeaves = testLeaves.filter(leave => {
-        try {
-          const leaveDate = new Date(leave);
-          return format(leaveDate, 'MMMM').toLowerCase() === monthName.toLowerCase();
-        } catch (error) {
-          console.error('Error parsing leave date:', leave, error);
-          return false;
-        }
-      });
-      
-      const totalHours = monthTasks.reduce((sum, task) => sum + (task.totalHours || 0), 0);
-      const approvedHours = monthTasks.reduce((sum, task) => sum + (task.approvedHours || 0), 0);
-      const workingDays = 20 + (i % 3); // Vary working days slightly
-      
-      // Calculate productivity (0-1 scale)
-      const workDays = Math.min(totalHours / 8, workingDays);
-      const productivity = workingDays > 0 ? Math.min(1, (workDays - monthLeaves.length) / workingDays) : 0;
-      
-      months.push({
-        month: monthName,
-        productivity: Math.max(0, productivity),
-        workingDays,
-        workDays: Math.min(Math.floor(totalHours / 8), workingDays - monthLeaves.length),
-        workingHours: totalHours,
-        leaves: monthLeaves.length
-      });
-      
-      console.log(`Month ${monthName}:`, {
-        tasks: monthTasks.length,
-        leaves: monthLeaves.length,
-        totalHours,
-        workDays: Math.min(Math.floor(totalHours / 8), workingDays - monthLeaves.length),
-        productivity: Math.max(0, productivity)
-      });
-    }
-    
-    return { 
-      tasks: currentMonthTasks, 
-      trends: months 
-    };
-  } catch (error) {
-    console.error('Error in formatTestData:', error);
-    return { tasks: [], trends: [] };
-  }
-};
-
-// Get test data
-const { tasks: mockTasks, trends: mockTrends } = formatTestData();
+import { Loader2 } from "lucide-react";
+import { taskService, analyticsService, leaveService } from "@/lib/services";
+import { useToast } from "@/components/ui/use-toast";
+import { Task } from "@/lib/types";
 
 export default function AnalyticsPage() {
-  const handleExport = async () => {
-    // Prepare analytics data for export
-    const metrics = useProductivityMetrics(mockTasks);
-    const analyticsData = {
-      metrics,
-      trends: mockTrends,
-      leaves: testLeaves,
+  const { toast } = useToast();
+  const [tasks, setTasks] = useState<Task[]>([]);
+  const [leaves, setLeaves] = useState<string[]>([]);
+  const [trends, setTrends] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        setLoading(true);
+        setError(null);
+
+        // Fetch tasks
+        const tasksData = await taskService.getTasks({});
+        setTasks(tasksData);
+
+        // Fetch leaves
+        const leavesData = await leaveService.getLeaves();
+        const leaveDates = leavesData.map(leave => leave.date);
+        setLeaves(leaveDates);
+
+        // Fetch analytics trends
+        const trendsData = await analyticsService.getTrends('productivity');
+        setTrends(trendsData);
+
+      } catch (err) {
+        console.error('Failed to fetch analytics data:', err);
+        const errorMessage = err instanceof Error ? err.message : 'Failed to load analytics data';
+        setError(errorMessage);
+        toast({
+          variant: 'destructive',
+          title: 'Error',
+          description: errorMessage,
+        });
+      } finally {
+        setLoading(false);
+      }
     };
-    await exportDashboardAndAnalyticsToExcel(testTasks, analyticsData);
+
+    fetchData();
+  }, [toast]);
+
+  const handleExport = async () => {
+    try {
+      const metrics = useProductivityMetrics(tasks);
+      const analyticsData = {
+        metrics,
+        trends,
+        leaves,
+      };
+      await exportDashboardAndAnalyticsToExcel(tasks, analyticsData);
+      toast({
+        title: 'Export Successful',
+        description: 'Analytics data has been exported to Excel.',
+      });
+    } catch (err) {
+      console.error('Export failed:', err);
+      toast({
+        variant: 'destructive',
+        title: 'Export Failed',
+        description: 'Failed to export analytics data. Please try again.',
+      });
+    }
   };
 
   const AnalyticsContent = () => {
-    try {
-      console.log('Rendering AnalyticsPage with mock data:', {
-        taskCount: mockTasks.length,
-        trendCount: mockTrends.length
-      });
-      
-      const metrics = useProductivityMetrics(mockTasks);
-      console.log('Calculated metrics:', metrics);
+    if (loading) {
+      return (
+        <div className="min-h-screen flex flex-col">
+          <Navbar />
+          <main className="flex-1 bg-gray-50 dark:bg-gray-900 p-4 md:p-8">
+            <div className="max-w-7xl mx-auto">
+              <div className="flex items-center justify-center h-64">
+                <div className="flex items-center space-x-2">
+                  <Loader2 className="h-8 w-8 animate-spin text-blue-600" />
+                  <span className="text-lg text-gray-600 dark:text-gray-400">
+                    Loading analytics data...
+                  </span>
+                </div>
+              </div>
+            </div>
+          </main>
+        </div>
+      );
+    }
+
+    if (error) {
+      return (
+        <div className="min-h-screen flex flex-col">
+          <Navbar />
+          <main className="flex-1 bg-gray-50 dark:bg-gray-900 p-8">
+            <div className="max-w-7xl mx-auto">
+              <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-6">
+                <h1 className="text-2xl font-bold text-red-600 dark:text-red-400 mb-4">
+                  Error Loading Analytics
+                </h1>
+                <p className="text-red-700 dark:text-red-300 mb-4">
+                  {error}
+                </p>
+                <Button 
+                  onClick={() => window.location.reload()} 
+                  variant="outline"
+                  className="border-red-300 text-red-700 hover:bg-red-50"
+                >
+                  Try Again
+                </Button>
+              </div>
+            </div>
+          </main>
+        </div>
+      );
+    }
+
+    const metrics = useProductivityMetrics(tasks);
 
       return (
         <div className="min-h-screen flex flex-col">
@@ -116,7 +136,7 @@ export default function AnalyticsPage() {
           
           <main className="flex-1 bg-gray-50 dark:bg-gray-900 p-4 md:p-8">
             <div className="max-w-7xl mx-auto space-y-8">
-              <div className="flex items-center justify-between">
+            <div className="flex items-center justify-between">
               <div>
                 <h1 className="text-3xl font-bold text-gray-900 dark:text-white">
                   Productivity Analytics
@@ -124,10 +144,10 @@ export default function AnalyticsPage() {
                 <p className="mt-2 text-gray-600 dark:text-gray-400">
                   Track your productivity metrics and performance
                 </p>
-                </div>
-                <Button onClick={handleExport} variant="outline">
-                  Export to Excel
-                </Button>
+              </div>
+              <Button onClick={handleExport} variant="outline">
+                Export to Excel
+              </Button>
               </div>
               
               <ProductivityMetrics 
@@ -141,37 +161,16 @@ export default function AnalyticsPage() {
                 year={metrics.year}
               />
               
-              <ProductivityTrends data={mockTrends} />
+            <ProductivityTrends data={trends} />
             </div>
           </main>
         </div>
       );
-    } catch (error) {
-      console.error('Error in AnalyticsPage:', error);
-      return (
-        <div className="min-h-screen flex flex-col">
-          <Navbar />
-          <main className="flex-1 bg-gray-50 dark:bg-gray-900 p-8">
-            <div className="max-w-7xl mx-auto">
-              <h1 className="text-2xl font-bold text-red-600 dark:text-red-400 mb-4">
-                Error Loading Analytics
-              </h1>
-              <p className="text-gray-700 dark:text-gray-300">
-                There was an error loading the analytics data. Please check the console for more details.
-              </p>
-              <pre className="mt-4 p-4 bg-gray-100 dark:bg-gray-800 rounded-md text-xs overflow-x-auto">
-                {error instanceof Error ? error.message : 'Unknown error occurred'}
-              </pre>
-            </div>
-          </main>
-        </div>
-      );
-    }
-  }
+  };
 
   return (
     <ProtectedRoute>
       <AnalyticsContent />
     </ProtectedRoute>
-  )
+  );
 }

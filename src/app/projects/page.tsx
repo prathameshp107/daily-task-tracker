@@ -4,13 +4,18 @@ import { ProtectedRoute } from '@/components/auth/protected-route'
 import { Navbar } from '@/components/navbar'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
-import { FolderOpen, CheckSquare, Calendar } from 'lucide-react'
+import { FolderOpen, CheckSquare, Calendar, Loader2 } from 'lucide-react'
 import { useState, useEffect } from 'react'
+import { projectService, taskService } from '@/lib/services'
+import { useToast } from '@/components/ui/use-toast'
 
 export default function ProjectsPage() {
+  const { toast } = useToast();
   const [projectCount, setProjectCount] = useState(0)
   const [taskCount, setTaskCount] = useState(0)
   const [selectedMonth, setSelectedMonth] = useState<string>('all')
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
 
   const months = [
     { value: 'all', label: 'All Months' },
@@ -30,28 +35,81 @@ export default function ProjectsPage() {
 
   // Fetch projects and tasks count
   useEffect(() => {
-    // Get projects count from localStorage
-    const savedProjects = localStorage.getItem('projects')
-    if (savedProjects) {
+    const fetchData = async () => {
       try {
-        const projects = JSON.parse(savedProjects)
-        setProjectCount(projects.length)
-      } catch (e) {
-        console.error('Failed to parse saved projects', e)
-      }
-    }
+        setLoading(true);
+        setError(null);
 
-    // Get tasks count from localStorage
-    const savedTasks = localStorage.getItem('tasks')
-    if (savedTasks) {
-      try {
-        const tasks = JSON.parse(savedTasks)
-        setTaskCount(tasks.length)
-      } catch (e) {
-        console.error('Failed to parse saved tasks', e)
+        // Fetch projects count
+        const projects = await projectService.getProjects();
+        setProjectCount(projects.length);
+
+        // Fetch tasks count
+        const tasks = await taskService.getTasks({});
+        setTaskCount(tasks.length);
+
+      } catch (err) {
+        console.error('Failed to fetch data:', err);
+        const errorMessage = err instanceof Error ? err.message : 'Failed to load data';
+        setError(errorMessage);
+        toast({
+          variant: 'destructive',
+          title: 'Error',
+          description: errorMessage,
+        });
+      } finally {
+        setLoading(false);
       }
-    }
-  }, [])
+    };
+
+    fetchData();
+  }, [toast]);
+
+  if (loading) {
+    return (
+      <ProtectedRoute>
+        <div className="min-h-screen bg-gradient-to-br from-gray-50 via-white to-blue-50/30 dark:from-gray-900 dark:via-gray-900 dark:to-blue-900/20">
+          <Navbar />
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+            <div className="flex items-center justify-center h-64">
+              <div className="flex items-center space-x-2">
+                <Loader2 className="h-8 w-8 animate-spin text-blue-600" />
+                <span className="text-lg text-gray-600 dark:text-gray-400">
+                  Loading projects data...
+                </span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </ProtectedRoute>
+    );
+  }
+
+  if (error) {
+    return (
+      <ProtectedRoute>
+        <div className="min-h-screen bg-gradient-to-br from-gray-50 via-white to-blue-50/30 dark:from-gray-900 dark:via-gray-900 dark:to-blue-900/20">
+          <Navbar />
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+            <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-6">
+              <h1 className="text-2xl font-bold text-red-600 dark:text-red-400 mb-4">
+                Error Loading Projects
+              </h1>
+              <p className="text-red-700 dark:text-red-300 mb-4">
+                {error}
+              </p>
+              <button 
+                onClick={() => window.location.reload()} 
+                className="px-4 py-2 border border-red-300 text-red-700 hover:bg-red-50 rounded-md"
+              >
+                Try Again
+              </button>
+            </div>
+          </div>
+        </div>
+      </ProtectedRoute>
+    );
+  }
 
   return (
     <ProtectedRoute>

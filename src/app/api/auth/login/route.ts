@@ -1,122 +1,49 @@
-import { NextRequest, NextResponse } from 'next/server'
-import { loginSchema } from '../../../../lib/validations/auth'
-import { AuthResponse, User } from '../../../../lib/types/auth'
+import { NextRequest, NextResponse } from 'next/server';
+import { connectToDatabase } from '@/lib/db/mongodb';
+import bcrypt from 'bcryptjs';
+import jwt from 'jsonwebtoken';
 
-/**
- * Mock user database for development
- * In production, this would be replaced with actual database queries
- */
-const MOCK_USERS = [
-  {
-    id: '1',
-    email: 'demo@example.com',
-    password: 'password123', // In production, this would be hashed
-    name: 'Demo User',
-    avatar: undefined,
-    createdAt: '2024-01-01T00:00:00Z',
-    updatedAt: '2024-01-01T00:00:00Z',
-  },
-  {
-    id: '2',
-    email: 'admin@example.com',
-    password: 'admin123',
-    name: 'Admin User',
-    avatar: undefined,
-    createdAt: '2024-01-01T00:00:00Z',
-    updatedAt: '2024-01-01T00:00:00Z',
-  },
-]
+const JWT_SECRET = process.env.JWT_SECRET || 'dev-secret-key-change-in-production';
 
-/**
- * Generate a mock JWT token for development
- * In production, use a proper JWT library with secret signing
- */
-function generateMockToken(user: User): string {
-  const header = btoa(JSON.stringify({ alg: 'HS256', typ: 'JWT' }))
-  const payload = btoa(JSON.stringify({
-    sub: user.id,
-    email: user.email,
-    name: user.name,
-    iat: Math.floor(Date.now() / 1000),
-    exp: Math.floor(Date.now() / 1000) + (24 * 60 * 60), // 24 hours
-  }))
-  const signature = btoa('mock-signature-for-development')
-  
-  return `${header}.${payload}.${signature}`
+if (!process.env.JWT_SECRET) {
+  console.warn('⚠️  JWT_SECRET not set. Using default secret for development.');
+  console.warn('   Please set JWT_SECRET environment variable for production.');
 }
 
-/**
- * Generate a mock refresh token
- */
-function generateMockRefreshToken(): string {
-  return btoa(`refresh-${Date.now()}-${Math.random()}`)
-}
-
-/**
- * POST /api/auth/login
- * Authenticate user with email and password
- */
-export async function POST(request: NextRequest) {
+export async function POST(req: NextRequest) {
   try {
-    const body = await request.json()
+    const { email, password } = await req.json();
     
-    // Validate request body
-    const validationResult = loginSchema.safeParse(body)
-    if (!validationResult.success) {
-      return NextResponse.json(
-        { 
-          message: 'Validation failed',
-          errors: validationResult.error.issues 
-        },
-        { status: 422 }
-      )
+    if (!email || !password) {
+      return NextResponse.json({ error: 'Missing email or password' }, { status: 400 });
     }
 
-    const { email, password } = validationResult.data
-
-    // Find user in mock database
-    const user = MOCK_USERS.find(u => u.email === email)
+    const { db } = await connectToDatabase();
+    const user = await db.collection('users').findOne({ email });
     
-    if (!user || user.password !== password) {
-      // Simulate realistic delay for failed authentication
-      await new Promise(resolve => setTimeout(resolve, 1000))
-      
-      return NextResponse.json(
-        { message: 'Invalid email or password' },
-        { status: 401 }
-      )
+    if (!user) {
+      return NextResponse.json({ error: 'Invalid credentials' }, { status: 401 });
     }
 
-    // Simulate realistic delay for successful authentication
-    await new Promise(resolve => setTimeout(resolve, 500))
+    const valid = await bcrypt.compare(password, user.passwordHash);
+    if (!valid) {
+      return NextResponse.json({ error: 'Invalid credentials' }, { status: 401 });
+    }
 
-    // Create user object without password
-    const userResponse: User = {
-      id: user.id,
+    const payload = {
+      userId: user._id.toString(), // ensure userId is a string
       email: user.email,
       name: user.name,
-      avatar: user.avatar,
-      createdAt: user.createdAt,
-      updatedAt: user.updatedAt,
-    }
+    };
 
-    // Generate tokens
-    const token = generateMockToken(userResponse)
-    const refreshToken = generateMockRefreshToken()
-
-    const authResponse: AuthResponse = {
-      token,
-      user: userResponse,
-      expiresIn: 24 * 60 * 60, // 24 hours in seconds
-      refreshToken,
-    }
-
-    return NextResponse.json(authResponse)
+    const token = jwt.sign(payload, JWT_SECRET, { expiresIn: '7d' });
+    
+    return NextResponse.json({ token, user: payload });
   } catch (error) {
-    console.error('Login API error:', error)
-    return NextResponse.json(
-      { message: 'Internal server error' },
-      { status: 500 }
-    )
+    console.error('Login error:', error);
+    return NextResponse.json({ 
+      error: 'Internal server error',
+      details: error instanceof Error ? error.message : 'Unknown error'
+    }, { status: 500 });
   }
 }

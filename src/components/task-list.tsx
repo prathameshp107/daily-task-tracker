@@ -8,12 +8,13 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Check, CheckCircle2, ChevronDown, ChevronRight, Circle, Columns, Filter as FilterIcon, Pencil, Plus, Search, Trash2, X, XCircle } from "lucide-react";
+import { Check, CheckCircle2, ChevronDown, ChevronRight, Circle, Columns, Filter as FilterIcon, Loader2, Pencil, Plus, Search, Trash2, X, XCircle } from "lucide-react";
 
-// Icons are now properly imported and available for use
 import { cn } from "@/lib/utils";
+import { Task, TaskStatus, isLegacyTask } from "@/lib/types";
 
-export interface Task {
+// For backward compatibility with components expecting the old Task type
+type LegacyTask = {
   taskId: string;
   taskType: string;
   description: string;
@@ -22,25 +23,40 @@ export interface Task {
   project: string;
   month: string;
   note?: string;
-  status: 'todo' | 'in-progress' | 'done';
+  status: TaskStatus;
   completed: boolean;
-}
+};
 
 interface TaskListProps {
-  tasks: Task[];
+  tasks: (Task | LegacyTask)[];
   onToggleTask: (taskId: string) => void;
   onDeleteTask: (taskId: string) => void;
-  onEditTask: (task: Task) => void;
+  onEditTask: (task: Task | LegacyTask) => void;
   onFilterChange?: (filter: string) => void;
+  loading?: boolean;
+  error?: string | null;
 }
 
 interface Filters {
   search: string;
   month: string;
-  taskType: string;
   project: string;
-  taskId: string;
   status: string;
+  taskType: string;
+  taskId: string;
+}
+
+interface VisibleColumns {
+  taskId: boolean;
+  taskType: boolean;
+  description: boolean;
+  totalHours: boolean;
+  approvedHours: boolean;
+  project: boolean;
+  month: boolean;
+  status: boolean;
+  note: boolean;
+  actions: boolean;
 }
 
 const allMonths = [
@@ -48,18 +64,110 @@ const allMonths = [
   'July', 'August', 'September', 'October', 'November', 'December'
 ];
 
-export function TaskList({ tasks, onToggleTask, onDeleteTask, onEditTask, onFilterChange }: TaskListProps) {
+// Utility function to get task properties, handling both Task and LegacyTask types
+const getTaskProperties = (task: Task | LegacyTask) => {
+  // For LegacyTask, map to common format
+  if (isLegacyTask(task)) {
+    return {
+      id: task.taskId,
+      _id: task.taskId,
+      title: task.description,
+      description: task.description,
+      type: task.taskType,
+      taskType: task.taskType,
+      totalHours: task.totalHours,
+      estimatedHours: task.totalHours, // Map to estimatedHours for consistency
+      approvedHours: task.approvedHours,
+      actualHours: task.approvedHours, // Map approvedHours to actualHours
+      project: task.project,
+      projectName: task.project, // Add projectName for consistency
+      projectId: '',
+      month: task.month,
+      status: task.status,
+      note: task.note || '',
+      completed: task.completed,
+      dueDate: new Date().toISOString(),
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString()
+    };
+  }
+  
+  // For Task type, handle both direct properties and nested properties
+  const projectName = 'project' in task && typeof task.project === 'string' 
+    ? task.project 
+    : 'projectName' in task 
+      ? (task as Task & { projectName?: string }).projectName 
+      : (task as Task & { project?: { name?: string } }).project?.name || '';
+      
+  const projectId = 'projectId' in task 
+    ? task.projectId 
+    : (task as Task & { project?: { _id?: string } }).project?._id || '';
+  
+  const dueDate = 'dueDate' in task && task.dueDate ? new Date(task.dueDate) : new Date();
+  const month = 'month' in task && task.month ? task.month : 
+               dueDate.toLocaleString('default', { month: 'long' });
+  
+  const taskType = 'type' in task ? task.type : 
+                  'taskType' in task ? (task as Task & { taskType?: string }).taskType : 
+                  (task as Task & { labels?: string[] }).labels?.[0] || 'Task';
+  const totalHours = task.estimatedHours || (task as Task & { totalHours?: number }).totalHours || 0;
+  const approvedHours = task.actualHours || (task as Task & { approvedHours?: number }).approvedHours || 0;
+  const taskId = (task as Task & { _id?: string; id?: string })._id || (task as Task & { _id?: string; id?: string }).id || '';
+  
+  // Create a new object with all the properties we need
+  return {
+    id: taskId,
+    _id: taskId,
+    title: task.title || '',
+    description: task.description || '',
+    type: taskType,
+    taskType: taskType,
+    totalHours: totalHours,
+    estimatedHours: totalHours,
+    approvedHours: approvedHours,
+    actualHours: approvedHours,
+    project: projectName,
+    projectName: projectName,
+    projectId: projectId,
+    month: month,
+    status: task.status || 'pending',
+    note: (task as Task & { note?: string }).note || task.description || '',
+    completed: task.completed || false,
+    dueDate: task.dueDate || dueDate.toISOString(),
+    createdAt: (task as Task & { createdAt?: string }).createdAt || new Date().toISOString(),
+    updatedAt: (task as Task & { updatedAt?: string }).updatedAt || new Date().toISOString()
+  };
+};
+
+const TaskList: React.FC<TaskListProps> = ({
+  tasks,
+  onToggleTask,
+  onDeleteTask,
+  onEditTask,
+  onFilterChange,
+  loading = false,
+  error = null,
+}) => {
+  // Initialize filter state with all required properties
   const [filters, setFilters] = useState<Filters>({
     search: '',
-    month: 'All Months',
-    taskType: 'All Types',
-    project: 'All Projects',
-    taskId: '',
-    status: 'All Statuses'
+    month: '',
+    project: '',
+    status: '',
+    taskType: '',
+    taskId: ''
   });
 
-  // Column visibility state
-  const [visibleColumns, setVisibleColumns] = useState({
+  // Track active filters to show in the UI
+  const [activeFilters, setActiveFilters] = useState<Partial<Filters>>({});
+  
+  // Track filter dropdown state
+  const [isFilterOpen, setIsFilterOpen] = useState(false);
+  const [hoveredFilter, setHoveredFilter] = useState<string | null>(null);
+  
+  // Track column visibility
+  const [isColumnMenuOpen, setIsColumnMenuOpen] = useState(false);
+  const [visibleColumns, setVisibleColumns] = useState<VisibleColumns>({
     taskId: true,
     taskType: true,
     description: true,
@@ -68,17 +176,36 @@ export function TaskList({ tasks, onToggleTask, onDeleteTask, onEditTask, onFilt
     project: true,
     month: true,
     status: true,
-    note: false, // Note column unchecked by default
+    note: true,
     actions: true
   });
 
-  const [isFilterOpen, setIsFilterOpen] = useState(false);
-  const [isColumnMenuOpen, setIsColumnMenuOpen] = useState(false);
-  const [hoveredFilter, setHoveredFilter] = useState<string | null>(null);
-  const [activeFilters, setActiveFilters] = useState<Record<string, string>>({});
-  const [filteredTasks, setFilteredTasks] = useState<Task[]>(tasks);
+  // Refs
   const filterRef = useRef<HTMLDivElement>(null);
   const columnMenuRef = useRef<HTMLDivElement>(null);
+  
+  // Memoized filtered tasks
+  const filteredTasks = useMemo(() => {
+    if (!tasks) return [];
+    
+    return tasks.filter((task) => {
+      const props = getTaskProperties(task);
+      
+      // Apply search filter
+      if (filters.search && !props.description.toLowerCase().includes(filters.search.toLowerCase())) {
+        return false;
+      }
+      
+      // Apply other filters
+      for (const [key, value] of Object.entries(filters)) {
+        if (key !== 'search' && value && props[key as keyof typeof props] !== value) {
+          return false;
+        }
+      }
+      
+      return true;
+    });
+  }, [tasks, filters]);
 
   // Get unique values for filter dropdowns
   const { taskTypes, projects, months, statuses } = useMemo(() => {
@@ -88,115 +215,50 @@ export function TaskList({ tasks, onToggleTask, onDeleteTask, onEditTask, onFilt
     const statusSet = new Set<string>();
 
     tasks.forEach(task => {
-      typeSet.add(task.taskType);
-      projectSet.add(task.project);
-      monthSet.add(task.month);
-      statusSet.add(task.status);
+      const props = getTaskProperties(task);
+      if (props.type) typeSet.add(props.type);
+      if (props.project) projectSet.add(props.project);
+      if (props.month) monthSet.add(props.month);
+      if (props.status) statusSet.add(props.status);
     });
 
     return {
       taskTypes: Array.from(typeSet).sort(),
       projects: Array.from(projectSet).sort(),
       months: Array.from(monthSet).sort(),
-      statuses: Array.from(statusSet).sort()
+      statuses: Array.from(statusSet).sort(),
     };
   }, [tasks]);
 
-  // Available columns configuration
-  const columns = [
-    { id: 'taskId', label: 'Task ID' },
-    { id: 'taskType', label: 'Type' },
-    { id: 'description', label: 'Description' },
-    { id: 'totalHours', label: 'Total Hours' },
-    { id: 'approvedHours', label: 'Approved Hours' },
-    { id: 'project', label: 'Project' },
-    { id: 'month', label: 'Month' },
-    { id: 'status', label: 'Status' },
-    { id: 'note', label: 'Note' },
-    { id: 'actions', label: 'Actions' }
-  ];
-
-  // Toggle column visibility
-  const toggleColumn = (columnId: string) => {
-    setVisibleColumns(prev => ({
-      ...prev,
-      [columnId]: !prev[columnId as keyof typeof prev]
-    }));
-  };
-
-  // Close dropdowns when clicking outside
-  useEffect(() => {
-    function handleClickOutside(event: MouseEvent) {
-      const target = event.target as Node;
-
-      // Close filter dropdown if open and click is outside
-      if (isFilterOpen && filterRef.current && !filterRef.current.contains(target)) {
-        setIsFilterOpen(false);
-        setHoveredFilter(null);
-      }
-
-      // Close column menu if open and click is outside
-      if (isColumnMenuOpen && columnMenuRef.current && !columnMenuRef.current.contains(target)) {
-        setIsColumnMenuOpen(false);
-      }
-    }
-
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, [isFilterOpen, isColumnMenuOpen]);
-
-  // Filter tasks based on active filters and search
-  const filterTasks = useCallback(() => {
-    return tasks.filter(task => {
-      // Apply search filter if there's a search term
-      const hasSearchTerm = filters.search.trim().length > 0;
-      const searchTerm = filters.search.toLowerCase().trim();
-      const matchesSearch = !hasSearchTerm ||
-        task.taskId.toLowerCase().includes(searchTerm) ||
-        task.taskType.toLowerCase().includes(searchTerm) ||
-        task.description.toLowerCase().includes(searchTerm) ||
-        task.project.toLowerCase().includes(searchTerm) ||
-        (task.note && task.note.toLowerCase().includes(searchTerm));
-
-      // Apply active filters
-      const matchesFilters = Object.entries(activeFilters).every(([key, value]) => {
-        if (!value || value === 'All') return true;
-        const taskValue = task[key as keyof Task];
-        return taskValue?.toString().toLowerCase() === value.toLowerCase();
-      });
-
-      return matchesSearch && matchesFilters;
-    });
-  }, [tasks, filters.search, activeFilters]);
-
-  // Update filtered tasks when filters or tasks change
-  useEffect(() => {
-    setFilteredTasks(filterTasks());
-  }, [filterTasks]);
-
+  // Handle filter changes
   const handleFilterChange = (key: keyof Filters, value: string) => {
-    setActiveFilters(prev => {
-      const newFilters = { ...prev };
-      if (value === 'All' || value === '') {
-        delete newFilters[key];
-      } else {
-        newFilters[key] = value;
+    const newFilters = {
+      ...filters,
+      [key]: value,
+    };
+    
+    setFilters(newFilters);
+    
+    // Update active filters (only include non-empty filters)
+    const newActiveFilters = Object.entries(newFilters).reduce((acc, [k, v]) => {
+      if (v && k !== 'search') { // Don't include empty filters or search in active filters
+        acc[k as keyof Filters] = v;
       }
-      return newFilters;
-    });
-
-    // Don't close the dropdown immediately, let user select multiple filters
-    // Only close if this is not a submenu interaction
-    if (key === 'search') {
-      setIsFilterOpen(false);
-      setHoveredFilter(null);
+      return acc;
+    }, {} as Partial<Filters>);
+    
+    setActiveFilters(newActiveFilters);
+    
+    // Notify parent component if needed
+    if (onFilterChange) {
+      onFilterChange(JSON.stringify(newActiveFilters));
     }
   };
 
   const clearFilter = (key: string) => {
     setActiveFilters(prev => {
       const newFilters = { ...prev };
-      delete (newFilters as any)[key];
+      delete (newFilters as Record<string, unknown>)[key];
       return newFilters;
     });
   };
@@ -211,38 +273,6 @@ export function TaskList({ tasks, onToggleTask, onDeleteTask, onEditTask, onFilt
 
   const showNoResults = filteredTasks.length === 0 && (hasActiveFilters || tasks.length > 0);
 
-  if (showNoResults) {
-    return (
-      <Card className="w-full">
-        <CardHeader>
-          <CardTitle>No tasks found</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <p className="text-muted-foreground">
-            No tasks match your search criteria. Try adjusting your filters or search query.
-          </p>
-          <Button
-            variant="outline"
-            className="mt-4"
-            onClick={() => {
-              setFilters(prev => ({
-                ...prev,
-                month: 'All Months',
-                search: ''
-              }));
-            }}
-          >
-            Clear all filters
-          </Button>
-        </CardContent>
-      </Card>
-    );
-  }
-
-  if (tasks.length === 0) {
-    return null;
-  }
-
   const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     handleFilterChange('search', e.target.value);
   };
@@ -250,8 +280,6 @@ export function TaskList({ tasks, onToggleTask, onDeleteTask, onEditTask, onFilt
   const clearSearch = () => {
     handleFilterChange('search', '');
   };
-
-
 
   interface FilterOption {
     id: keyof Omit<Filters, 'search'>;
@@ -305,22 +333,77 @@ export function TaskList({ tasks, onToggleTask, onDeleteTask, onEditTask, onFilt
     </TableHeader>
   );
 
-  const renderTaskRow = (task: Task) => {
+  const renderTaskRows = useCallback(() => {
+    if (loading) {
+      return (
+        <TableRow>
+          <TableCell colSpan={10} className="text-center py-8">
+            <div className="flex items-center justify-center">
+              <Loader2 className="h-6 w-6 animate-spin mr-2" />
+              <span>Loading tasks...</span>
+            </div>
+          </TableCell>
+        </TableRow>
+      );
+    }
+
+    if (error) {
+      return (
+        <TableRow>
+          <TableCell colSpan={10} className="text-center py-8 text-red-600 dark:text-red-400">
+            {error}
+          </TableCell>
+        </TableRow>
+      );
+    }
+
+    if (filteredTasks.length === 0) {
+      return (
+        <TableRow>
+          <TableCell colSpan={Object.values(visibleColumns).filter(Boolean).length} className="text-center py-8 text-muted-foreground">
+            No tasks found. Try adjusting your filters or create a new task.
+          </TableCell>
+        </TableRow>
+      );
+    }
+
+    return filteredTasks.map((task) => {
+      const taskProps = getTaskProperties(task);
+      const {
+        id,
+        title,
+        description,
+        project,
+        type,
+        totalHours,
+        approvedHours,
+        month,
+        status,
+        completed,
+        note
+      } = taskProps;
+
     return (
-      <TableRow key={task.taskId}>
-        <TableCell className="font-medium">{task.taskId}</TableCell>
-        <TableCell>{task.taskType}</TableCell>
-        <TableCell>{task.description}</TableCell>
-        <TableCell>{task.totalHours}</TableCell>
-        <TableCell>{task.approvedHours}</TableCell>
-        <TableCell>{task.project}</TableCell>
-        <TableCell>{task.month}</TableCell>
+        <TableRow key={id}>
+          {visibleColumns.taskId && <TableCell className="font-medium">{id}</TableCell>}
+          {visibleColumns.taskType && <TableCell>{type}</TableCell>}
+          {visibleColumns.description && <TableCell className="max-w-xs truncate">{description}</TableCell>}
+          {visibleColumns.totalHours && <TableCell>{totalHours}</TableCell>}
+          {visibleColumns.approvedHours && <TableCell>{approvedHours}</TableCell>}
+          {visibleColumns.project && <TableCell>{project}</TableCell>}
+          {visibleColumns.month && <TableCell>{month}</TableCell>}
+          {visibleColumns.status && (
         <TableCell>
-          <Badge variant={task.status === 'done' ? 'default' : 'secondary'}>
-            {task.status}
-          </Badge>
+              <span className={`px-2 py-1 text-xs rounded-full ${status === 'todo' ? 'bg-yellow-100 text-yellow-800' :
+                  status === 'in-progress' ? 'bg-blue-100 text-blue-800' :
+                    'bg-green-100 text-green-800'
+                }`}>
+                {status.replace('-', ' ')}
+              </span>
         </TableCell>
-        <TableCell>{task.note || '-'}</TableCell>
+          )}
+          {visibleColumns.note && <TableCell className="max-w-xs truncate">{note || '-'}</TableCell>}
+          {visibleColumns.actions && (
         <TableCell>
           <div className="flex items-center space-x-2">
             <Button
@@ -337,7 +420,7 @@ export function TaskList({ tasks, onToggleTask, onDeleteTask, onEditTask, onFilt
             <Button
               variant="ghost"
               size="icon"
-              onClick={() => onDeleteTask(task.taskId)}
+                  onClick={() => onDeleteTask(id)}
               className="h-8 w-8 p-0 text-red-500 hover:text-red-700"
               title="Delete task"
               type="button"
@@ -347,12 +430,66 @@ export function TaskList({ tasks, onToggleTask, onDeleteTask, onEditTask, onFilt
             </Button>
           </div>
         </TableCell>
+          )}
       </TableRow>
+      );
+    });
+  }, [filteredTasks, visibleColumns, onEditTask, onDeleteTask, loading, error]);
+
+  // Close dropdowns when clicking outside
+  useEffect(() => {
+    function handleClickOutside(event: MouseEvent) {
+      const target = event.target as Node;
+
+      // Close filter dropdown if open and click is outside
+      if (isFilterOpen && filterRef.current && !filterRef.current.contains(target)) {
+        setIsFilterOpen(false);
+        setHoveredFilter(null);
+      }
+
+      // Close column menu if open and click is outside
+      if (isColumnMenuOpen && columnMenuRef.current && !columnMenuRef.current.contains(target)) {
+        setIsColumnMenuOpen(false);
+      }
+    }
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [isFilterOpen, isColumnMenuOpen]);
+
+  if (showNoResults) {
+    return (
+      <Card className="w-full">
+        <CardHeader>
+          <CardTitle>No tasks found</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <p className="text-muted-foreground">
+            No tasks match your search criteria. Try adjusting your filters or search query.
+          </p>
+          <Button
+            variant="outline"
+            className="mt-4"
+            onClick={() => {
+              setFilters(prev => ({
+                ...prev,
+                month: 'All Months',
+                search: ''
+              }));
+            }}
+          >
+            Clear all filters
+          </Button>
+        </CardContent>
+      </Card>
     );
-  };
+  }
+
+  if (tasks.length === 0) {
+    return null;
+  }
 
   return (
-    <>
       <div className="w-full h-full p-4 space-y-4">
         <div className="flex flex-col space-y-4">
           <div className="flex flex-col space-y-3 md:space-y-0 md:flex-row md:items-center md:justify-between">
@@ -412,39 +549,21 @@ export function TaskList({ tasks, onToggleTask, onDeleteTask, onEditTask, onFilt
                               <div className="py-1.5">
                                 <button
                                   onClick={() => handleFilterChange(filter.id, 'All')}
-                                  className={cn(
-                                    "w-full flex items-center px-4 py-2.5 text-sm text-left transition-colors",
-                                    "hover:bg-gray-50 focus:outline-none focus:ring-1 focus:ring-primary focus:ring-opacity-50",
-                                    !activeFilters[filter.id] ? "bg-gray-50 font-semibold text-primary" : "text-gray-700"
-                                  )}
+                                className="w-full text-left px-3 py-2 text-sm hover:bg-gray-50 rounded-md"
+                              >
+                                All {filter.label}s
+                              </button>
+                            </div>
+                            {filter.options.map((option) => (
+                              <div key={option} className="py-1.5">
+                                <button
+                                  onClick={() => handleFilterChange(filter.id, option)}
+                                  className="w-full text-left px-3 py-2 text-sm hover:bg-gray-50 rounded-md"
                                 >
-                                  <span className="w-5 h-5 flex items-center justify-center mr-2">
-                                    {!activeFilters[filter.id] && <Check className="h-3.5 w-3.5" />}
-                                  </span>
-                                  <span>All {filter.label}s</span>
+                                  {option}
                                 </button>
-                                <div className="border-t border-gray-100 my-1"></div>
-                                {filter.options.map((option) => (
-                                  <button
-                                    key={option}
-                                    onClick={() => handleFilterChange(filter.id, option)}
-                                    className={cn(
-                                      "w-full flex items-center px-4 py-2.5 text-sm text-left transition-colors",
-                                      "hover:bg-gray-50 focus:outline-none focus:ring-1 focus:ring-primary focus:ring-opacity-50",
-                                      activeFilters[filter.id] === option
-                                        ? "bg-blue-50 text-primary font-medium"
-                                        : "text-gray-700 hover:text-gray-900"
-                                    )}
-                                  >
-                                    <span className="w-5 h-5 flex items-center justify-center mr-2">
-                                      {activeFilters[filter.id] === option && (
-                                        <Check className="h-3.5 w-3.5" />
-                                      )}
-                                    </span>
-                                    <span className="truncate">{option}</span>
-                                  </button>
-                                ))}
                               </div>
+                            ))}
                             </div>
                           )}
                         </div>
@@ -454,188 +573,96 @@ export function TaskList({ tasks, onToggleTask, onDeleteTask, onEditTask, onFilt
                 )}
               </div>
 
-              {/* Customize Columns Button */}
-              <div className="relative z-10" ref={columnMenuRef} style={{ position: 'relative', minWidth: 'fit-content' }}>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setIsColumnMenuOpen(!isColumnMenuOpen)}
-                  className="flex items-center gap-2"
-                >
-                  <Columns className="h-4 w-4" />
-                  <span>Customize Columns</span>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="outline" size="sm" className="h-8 border-dashed">
+                  <Columns className="mr-2 h-4 w-4" />
+                  Columns
                 </Button>
-
-                {/* Columns Dropdown */}
-                {isColumnMenuOpen && (
-                  <div className="absolute right-0 top-full mt-1 w-56 bg-white rounded-lg shadow-xl border border-gray-200 overflow-visible z-50" style={{ minWidth: '14rem' }}>
-                    <div className="p-2">
-                      <div className="px-3 py-2 text-sm font-medium text-gray-700">Visible Columns</div>
-                      <div className="space-y-1 max-h-60 overflow-y-auto">
-                        {columns.map((column) => (
-                          <div key={column.id} className="flex items-center space-x-2 px-3 py-1.5 hover:bg-gray-50 rounded">
-                            <Checkbox
-                              id={`col-${column.id}`}
-                              checked={visibleColumns[column.id as keyof typeof visibleColumns]}
-                              onCheckedChange={() => toggleColumn(column.id)}
-                              className="h-4 w-4"
-                            />
-                            <Label
-                              htmlFor={`col-${column.id}`}
-                              className="text-sm font-normal cursor-pointer select-none"
-                            >
-                              {column.label}
-                            </Label>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  </div>
-                )}
-              </div>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="start" className="w-[200px]">
+                <DropdownMenuLabel>Toggle columns</DropdownMenuLabel>
+                <DropdownMenuSeparator />
+                {Object.entries(visibleColumns).map(([key, value]) => (
+                  <DropdownMenuCheckboxItem
+                    key={key}
+                    checked={value}
+                    onCheckedChange={(checked) =>
+                      setVisibleColumns((prev) => ({
+                        ...prev,
+                        [key]: checked,
+                      }))
+                    }
+                  >
+                    {key
+                      .replace(/([A-Z])/g, ' $1')
+                      .replace(/^./, (str) => str.toUpperCase())}
+                  </DropdownMenuCheckboxItem>
+                ))}
+              </DropdownMenuContent>
+            </DropdownMenu>
             </div>
 
-            {/* Search Bar */}
-            <div className="relative flex-1 max-w-md">
-              <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                <Search className="h-4 w-4 text-gray-400" />
-              </div>
+          <div className="flex items-center space-x-2">
+            <div className="relative">
+              <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
               <Input
-                type="text"
+                type="search"
                 placeholder="Search tasks..."
-                className="pl-10 pr-8 py-2 w-full"
+                className="w-full rounded-lg bg-background pl-8 md:w-[200px] lg:w-[336px]"
                 value={filters.search}
-                onChange={handleSearchChange}
+                onChange={(e) =>
+                  setFilters((prev) => ({
+                    ...prev,
+                    search: e.target.value,
+                  }))
+                }
               />
-              {filters.search && (
-                <button
-                  onClick={clearSearch}
-                  className="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-400 hover:text-gray-600"
-                >
-                  <X className="h-4 w-4" />
-                </button>
-              )}
             </div>
-          </div>
-        </div>
-
-        {/* Active Filters */}
-        {hasActiveFilters && (
-          <div className="flex flex-wrap gap-2 items-center">
-            <span className="text-sm text-muted-foreground">Active filters:</span>
-            {Object.entries(activeFilters).map(([key, value]) => (
-              <Badge
-                key={key}
-                variant="secondary"
-                className="flex items-center gap-1 text-sm font-normal"
-              >
-                <span>{key}: {value}</span>
-                <button
-                  onClick={() => clearFilter(key)}
-                  className="ml-1 rounded-full hover:bg-muted p-0.5"
-                >
-                  <XCircle className="h-3.5 w-3.5" />
-                </button>
-              </Badge>
-            ))}
-            {filters.search && (
-              <Badge variant="secondary" className="flex items-center gap-1 text-sm font-normal">
-                <span>Search: {filters.search}</span>
-                <button
-                  onClick={clearSearch}
-                  className="ml-1 rounded-full hover:bg-muted p-0.5"
-                >
-                  <XCircle className="h-3.5 w-3.5" />
-                </button>
-              </Badge>
-            )}
             <Button
-              variant="ghost"
+              variant="outline"
               size="sm"
-              onClick={clearAllFilters}
-              className="h-6 px-2 text-xs text-muted-foreground hover:text-foreground"
+              onClick={() => {
+                setFilters({
+                  search: '',
+                  month: '',
+                  project: '',
+                  status: '',
+                  taskType: '',
+                  taskId: ''
+                });
+                setVisibleColumns({
+                  taskId: true,
+                  taskType: true,
+                  description: true,
+                  totalHours: true,
+                  approvedHours: true,
+                  project: true,
+                  month: true,
+                  status: true,
+                  note: true,
+                  actions: true,
+                });
+              }}
+              className="h-8"
             >
-              Clear all
+              <X className="mr-2 h-4 w-4" />
+              Reset
             </Button>
           </div>
-        )}
+        </div>
       </div>
 
-      <div className="overflow-x-auto sm:overflow-visible">
-        <div className="border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden mx-4 my-4">
-          <Table className="w-full border-collapse">
+      <div className="rounded-md border">
+        <Table>
             {renderTableHeader()}
             <TableBody>
-              {filteredTasks.length > 0 ? (
-                filteredTasks.map((task, index) => (
-                  <TableRow
-                    key={task.taskId}
-                    className={`border-b border-gray-200 dark:border-gray-600 ${index % 2 === 0 ? 'bg-white dark:bg-gray-800' : 'bg-gray-50 dark:bg-gray-800/50'
-                      }`}
-                  >
-                    {visibleColumns.taskId && <TableCell className="font-medium">{task.taskId}</TableCell>}
-                    {visibleColumns.taskType && <TableCell>{task.taskType}</TableCell>}
-                    {visibleColumns.description && <TableCell className="max-w-xs truncate">{task.description}</TableCell>}
-                    {visibleColumns.totalHours && <TableCell>{task.totalHours}</TableCell>}
-                    {visibleColumns.approvedHours && <TableCell>{task.approvedHours}</TableCell>}
-                    {visibleColumns.project && <TableCell>{task.project}</TableCell>}
-                    {visibleColumns.month && <TableCell>{task.month}</TableCell>}
-                    {visibleColumns.status && (
-                      <TableCell>
-                        <span className={`px-2 py-1 text-xs rounded-full ${task.status === 'todo' ? 'bg-yellow-100 text-yellow-800' :
-                            task.status === 'in-progress' ? 'bg-blue-100 text-blue-800' :
-                              'bg-green-100 text-green-800'
-                          }`}>
-                          {task.status.replace('-', ' ')}
-                        </span>
-                      </TableCell>
-                    )}
-                    {visibleColumns.note && <TableCell className="max-w-xs truncate">{task.note || '-'}</TableCell>}
-                    {visibleColumns.actions && (
-                      <TableCell>
-                        <div className="flex items-center space-x-2">
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            onClick={() => onEditTask(task)}
-                            className="h-8 w-8 p-0 text-blue-500 hover:text-blue-700"
-                            title="Edit task"
-                            type="button"
-                          >
-                            <Pencil className="h-4 w-4" />
-                            <span className="sr-only">Edit</span>
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            onClick={() => onDeleteTask(task.taskId)}
-                            className="h-8 w-8 p-0 text-red-500 hover:text-red-700"
-                            title="Delete task"
-                            type="button"
-                          >
-                            <Trash2 className="h-4 w-4" />
-                            <span className="sr-only">Delete</span>
-                          </Button>
-                        </div>
-                      </TableCell>
-                    )}
-                  </TableRow>
-                ))
-              ) : (
-                <TableRow>
-                  <TableCell
-                    colSpan={Object.values(visibleColumns).filter(Boolean).length}
-                    className="h-24 text-center"
-                  >
-                    No tasks found. Try adjusting your filters or add a new task.
-                  </TableCell>
-                </TableRow>
-              )}
+            {renderTaskRows()}
             </TableBody>
           </Table>
         </div>
       </div>
-    </>
-
   );
 };
+
+export default TaskList;

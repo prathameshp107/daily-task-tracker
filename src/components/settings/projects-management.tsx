@@ -11,8 +11,10 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
-import { Pencil, Trash2, Plus } from 'lucide-react';
+import { Pencil, Trash2, Plus, Loader2 } from 'lucide-react';
 import { toast } from '@/components/ui/use-toast';
+import { projectService } from '@/lib/services';
+import { Project } from '@/lib/types';
 
 const projectStatuses = [
   { id: 'active', label: 'Active', color: 'bg-green-500' },
@@ -22,7 +24,6 @@ const projectStatuses = [
 ];
 
 const projectSchema = z.object({
-  id: z.string().optional(),
   name: z.string().min(1, 'Required'),
   description: z.string().optional(),
   status: z.string().min(1, 'Required'),
@@ -38,22 +39,6 @@ const projectSchema = z.object({
 
 type ProjectFormValues = z.infer<typeof projectSchema>;
 
-interface Integration {
-  url: string;
-  projectKey?: string;
-  projectId?: string;
-}
-
-interface ProjectIntegrations {
-  jira?: Integration;
-  redmine?: Integration;
-}
-
-interface Project extends ProjectFormValues {
-  id: string;
-  integrations?: ProjectIntegrations;
-}
-
 interface ProjectsManagementProps {
   selectedMonth?: string;
 }
@@ -63,28 +48,9 @@ export function ProjectsManagement({ selectedMonth = 'all' }: ProjectsManagement
   const [filteredProjects, setFilteredProjects] = useState<Project[]>([]);
   const [isEditing, setIsEditing] = useState(false);
   const [isFormOpen, setIsFormOpen] = useState(false);
-
-  // Fetch integration settings from localStorage
-  const [integrationType, setIntegrationType] = useState<'jira' | 'redmine' | null>(null);
-  useEffect(() => {
-    const savedIntegrations = localStorage.getItem('projectToolIntegrations');
-    if (savedIntegrations) {
-      try {
-        const integrations = JSON.parse(savedIntegrations);
-        if (integrations.jira && integrations.jira.url) {
-          setIntegrationType('jira');
-        } else if (integrations.redmine && integrations.redmine.url) {
-          setIntegrationType('redmine');
-        } else {
-          setIntegrationType(null);
-        }
-      } catch (e) {
-        setIntegrationType(null);
-      }
-    } else {
-      setIntegrationType(null);
-    }
-  }, []);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [currentProject, setCurrentProject] = useState<Project | null>(null);
 
   const form = useForm<ProjectFormValues>({
     resolver: zodResolver(projectSchema),
@@ -102,16 +68,29 @@ export function ProjectsManagement({ selectedMonth = 'all' }: ProjectsManagement
     },
   });
 
-  // Load projects from localStorage on component mount
+  // Load projects from service
   useEffect(() => {
-    const savedProjects = localStorage.getItem('projects');
-    if (savedProjects) {
+    const loadProjects = async () => {
       try {
-        setProjects(JSON.parse(savedProjects));
-      } catch (e) {
-        console.error('Failed to parse saved projects', e);
+        setLoading(true);
+        setError(null);
+        const projectsData = await projectService.getProjects();
+        setProjects(projectsData);
+      } catch (err) {
+        console.error('Failed to load projects:', err);
+        const errorMessage = err instanceof Error ? err.message : 'Failed to load projects';
+        setError(errorMessage);
+        toast({
+          variant: 'destructive',
+          title: 'Error',
+          description: errorMessage,
+        });
+      } finally {
+        setLoading(false);
       }
-    }
+    };
+
+    loadProjects();
   }, []);
 
   // Filter projects based on selected month
@@ -128,71 +107,99 @@ export function ProjectsManagement({ selectedMonth = 'all' }: ProjectsManagement
     }
   }, [projects, selectedMonth]);
 
-  // Save projects to localStorage whenever they change
-  useEffect(() => {
-    if (projects.length > 0) {
-      localStorage.setItem('projects', JSON.stringify(projects));
-    }
-  }, [projects]);
-
-  const onSubmit = (data: ProjectFormValues) => {
-    const projectData = {
-      ...data,
-      integrations: {
-        ...(data.jiraUrl ? {
-          jira: {
-            url: data.jiraUrl,
-            projectKey: data.jiraProjectKey || '',
-            syncEnabled: true
-          }
-        } : {}),
-        ...(data.redmineUrl ? {
-          redmine: {
-            url: data.redmineUrl,
-            projectId: data.redmineProjectId || '',
-            syncEnabled: true
-          }
-        } : {})
+  const onSubmit = async (data: ProjectFormValues) => {
+    try {
+      if (isEditing && currentProject) {
+        // Update existing project
+        const updatedProject = await projectService.updateProject(currentProject._id, {
+          name: data.name,
+          description: data.description || '',
+          status: data.status,
+          startDate: data.startDate,
+          endDate: data.endDate || undefined,
+          client: data.client || '',
+          color: data.color,
+        });
+        
+        setProjects(projects.map(project => 
+          project._id === currentProject._id ? updatedProject : project
+        ));
+        
+        toast({
+          title: 'Success',
+          description: 'Project updated successfully.',
+        });
+      } else {
+        // Add new project
+        const newProject = await projectService.createProject({
+          name: data.name,
+          description: data.description || '',
+          status: data.status,
+          startDate: data.startDate,
+          endDate: data.endDate || undefined,
+          client: data.client || '',
+          color: data.color,
+        });
+        
+        setProjects([...projects, newProject]);
+        toast({
+          title: 'Success',
+          description: 'Project created successfully.',
+        });
       }
-    };
-
-    if (isEditing && data.id) {
-      // Update existing project
-      setProjects(projects.map(project => 
-        project.id === data.id ? { ...projectData, id: data.id } as Project : project
-      ));
-      toast('Project updated - Your project has been updated successfully.');
-    } else {
-      // Add new project
-      const newProject: Project = {
-        ...projectData,
-        id: Date.now().toString(),
-      };
-      setProjects([...projects, newProject]);
-      toast('Project created - Your new project has been added.');
+      
+      // Reset form and close it
+      form.reset();
+      setIsFormOpen(false);
+      setIsEditing(false);
+      setCurrentProject(null);
+    } catch (err) {
+      console.error('Failed to save project:', err);
+      toast({
+        variant: 'destructive',
+        title: 'Error',
+        description: 'Failed to save project. Please try again.',
+      });
     }
-    
-    // Reset form and close it
-    form.reset();
-    setIsFormOpen(false);
-    setIsEditing(false);
   };
 
   const editProject = (project: Project) => {
     form.reset({
-      ...project,
-      jiraUrl: project.integrations?.jira?.url || '',
-      jiraProjectKey: project.integrations?.jira?.projectKey || '',
-      redmineUrl: project.integrations?.redmine?.url || '',
-      redmineProjectId: project.integrations?.redmine?.projectId || '',
+      name: project.name,
+      description: project.description || '',
+      status: project.status,
+      startDate: project.startDate,
+      endDate: project.endDate || '',
+      client: project.client || '',
+      color: project.color,
+      jiraUrl: '',
+      jiraProjectKey: '',
+      redmineUrl: '',
+      redmineProjectId: '',
     });
+    setCurrentProject(project);
     setIsEditing(true);
     setIsFormOpen(true);
   };
 
-  const deleteProject = (id: string) => {
-    setProjects(projects.filter(project => project.id !== id));
-    toast('Project deleted - The project has been removed.');
+  const deleteProject = async (id: string) => {
+    if (confirm('Are you sure you want to delete this project?')) {
+      try {
+        await projectService.deleteProject(id);
+        setProjects(projects.filter(project => project._id !== id));
+        toast({
+          title: 'Success',
+          description: 'Project deleted successfully.',
+        });
+      } catch (err) {
+        console.error('Failed to delete project:', err);
+        toast({
+          variant: 'destructive',
+          title: 'Error',
+          description: 'Failed to delete project. Please try again.',
+        });
+      }
+    }
   };
 
   const getStatusBadge = (statusId: string) => {
@@ -206,6 +213,40 @@ export function ProjectsManagement({ selectedMonth = 'all' }: ProjectsManagement
       </Badge>
     );
   };
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-32">
+        <div className="flex items-center space-x-2">
+          <Loader2 className="h-6 w-6 animate-spin text-blue-600" />
+          <span className="text-gray-600 dark:text-gray-400">
+            Loading projects...
+          </span>
+        </div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-4">
+        <h3 className="text-lg font-semibold text-red-600 dark:text-red-400 mb-2">
+          Error Loading Projects
+        </h3>
+        <p className="text-red-700 dark:text-red-300 mb-4">
+          {error}
+        </p>
+        <Button 
+          onClick={() => window.location.reload()} 
+          variant="outline"
+          size="sm"
+          className="border-red-300 text-red-700 hover:bg-red-50"
+        >
+          Try Again
+        </Button>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -473,7 +514,7 @@ export function ProjectsManagement({ selectedMonth = 'all' }: ProjectsManagement
             </TableHeader>
             <TableBody>
               {filteredProjects.map((project) => (
-                <TableRow key={project.id}>
+                <TableRow key={project._id}>
                   <TableCell className="font-medium">
                     <div className="flex items-center gap-2">
                       <div 
@@ -489,7 +530,8 @@ export function ProjectsManagement({ selectedMonth = 'all' }: ProjectsManagement
                   <TableCell>{project.endDate ? new Date(project.endDate).toLocaleDateString() : '-'}</TableCell>
                   <TableCell>
                     <div className="flex flex-col gap-1">
-                      {integrationType === 'jira' && project.integrations?.jira?.url && (
+                      {/* The integrationType logic was removed, so this block will always show Jira and Redmine if they exist */}
+                      {project.integrations?.jira?.url && (
                         <a 
                           href={project.integrations.jira.url} 
                           target="_blank" 
@@ -503,7 +545,7 @@ export function ProjectsManagement({ selectedMonth = 'all' }: ProjectsManagement
                           Jira
                         </a>
                       )}
-                      {integrationType === 'redmine' && project.integrations?.redmine?.url && (
+                      {project.integrations?.redmine?.url && (
                         <a 
                           href={project.integrations.redmine.url} 
                           target="_blank" 
@@ -518,7 +560,7 @@ export function ProjectsManagement({ selectedMonth = 'all' }: ProjectsManagement
                           Redmine
                         </a>
                       )}
-                      {((integrationType === 'jira' && !project.integrations?.jira?.url) || (integrationType === 'redmine' && !project.integrations?.redmine?.url) || !integrationType) && (
+                      {(!project.integrations?.jira?.url && !project.integrations?.redmine?.url) && (
                         <span className="text-muted-foreground text-xs">None</span>
                       )}
                     </div>
@@ -537,7 +579,7 @@ export function ProjectsManagement({ selectedMonth = 'all' }: ProjectsManagement
                         variant="ghost"
                         size="icon"
                         className="h-8 w-8 text-red-500 hover:text-red-600 hover:bg-red-50"
-                        onClick={() => deleteProject(project.id)}
+                        onClick={() => deleteProject(project._id)}
                       >
                         <Trash2 className="h-4 w-4" />
                       </Button>
