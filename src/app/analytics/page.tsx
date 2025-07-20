@@ -20,17 +20,17 @@ export default function AnalyticsPage() {
   const [trends, setTrends] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-
+    
   useEffect(() => {
     const fetchData = async () => {
       try {
         setLoading(true);
         setError(null);
-
+      
         // Fetch tasks
         const tasksData = await taskService.getTasks({});
         setTasks(tasksData);
-
+      
         // Fetch leaves
         const leavesData = await leaveService.getLeaves();
         const leaveDates = leavesData.map(leave => leave.date);

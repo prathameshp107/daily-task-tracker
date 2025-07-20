@@ -4,7 +4,7 @@ import { connectToDatabase } from '@/lib/db/mongodb';
 import { ObjectId } from 'mongodb';
 
 interface AuthUser {
-  user: { _id: string }
+  user: { _id: string | ObjectId }
 }
 
 // Type guard for authResponse
@@ -15,7 +15,10 @@ function isAuthSuccess(response: unknown): response is AuthUser {
     'user' in response &&
     typeof (response as { user?: unknown }).user === 'object' &&
     (response as { user?: unknown }).user !== null &&
-    typeof ((response as { user: { _id?: unknown } }).user._id) === 'string'
+    (
+      typeof ((response as { user: { _id?: unknown } }).user._id) === 'string' ||
+      ((response as { user: { _id?: unknown } }).user._id instanceof ObjectId)
+    )
   );
 }
 
@@ -78,6 +81,8 @@ export async function GET(req: NextRequest) {
 // POST /api/tasks - Create a new task
 export async function POST(req: NextRequest) {
   const authResponse = await authenticateToken(req);
+  console.log('[TASKS][POST] Authorization header:', req.headers.get('authorization'));
+  console.log('[TASKS][POST] authResponse:', authResponse);
   
   if ('error' in authResponse) {
     return authResponse;
@@ -87,6 +92,9 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
   const userId = authResponse.user._id;
+
+  const body = await req.json();
+  console.log('[TASKS][POST] request body:', body);
 
   const { 
     projectId, 
@@ -98,7 +106,7 @@ export async function POST(req: NextRequest) {
     note = '',
     date = new Date().toISOString().split('T')[0],
     month = new Date().toISOString().slice(0, 7) // YYYY-MM format
-  } = await req.json();
+  } = body;
   
   // Validate required fields
   if (!projectId) {
@@ -133,6 +141,7 @@ export async function POST(req: NextRequest) {
       _id: new ObjectId(projectId),
       userId: new ObjectId(userId)
     });
+    console.log('[TASKS][POST] project lookup:', project);
 
     if (!project) {
       return NextResponse.json(

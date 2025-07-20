@@ -67,7 +67,7 @@ class ApiClient {
           if (error.response.status === 401) {
             // Clear token and redirect to login
             if (typeof window !== 'undefined') {
-              localStorage.removeItem('token');
+              localStorage.removeItem('auth_token');
               window.location.href = '/login';
             }
           }

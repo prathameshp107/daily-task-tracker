@@ -15,7 +15,7 @@ interface TaskFormData {
   description: string;
   totalHours: number;
   approvedHours: number;
-  project: string;
+  projectId: string; // <-- use projectId instead of project name
   month: string;
   note: string;
   status: 'todo' | 'in-progress' | 'done';
@@ -38,7 +38,7 @@ export function TaskForm({ task, onSubmit, onCancel }: TaskFormProps) {
     description: '',
     totalHours: 0,
     approvedHours: 0,
-    project: '',
+    projectId: '', // <-- use projectId
     month: new Date().toLocaleString('default', { month: 'long' }),
     note: '',
     status: 'todo',
@@ -70,15 +70,15 @@ export function TaskForm({ task, onSubmit, onCancel }: TaskFormProps) {
   useEffect(() => {
     if (task) {
       setFormData({
-        taskId: task.taskId || task._id || '',
-        taskType: task.type || task.taskType || '',
+        taskId: task._id || '', // Use _id for taskId
+        taskType: task.type || '', // Use type for taskType
         description: task.description || '',
         totalHours: task.estimatedHours || task.totalHours || 0,
         approvedHours: task.actualHours || task.approvedHours || 0,
-        project: task.project || task.projectName || '',
+        projectId: task.projectId || task.project || '',
         month: task.month || new Date().toLocaleString('default', { month: 'long' }),
         note: task.note || '',
-        status: task.status || 'todo',
+        status: (task.status === 'pending' ? 'todo' : task.status === 'completed' ? 'done' : task.status) as 'todo' | 'in-progress' | 'done',
       });
     } else {
       // Reset form for new task
@@ -88,7 +88,7 @@ export function TaskForm({ task, onSubmit, onCancel }: TaskFormProps) {
         description: '',
         totalHours: 0,
         approvedHours: 0,
-        project: '',
+        projectId: '',
         month: new Date().toLocaleString('default', { month: 'long' }),
         note: '',
         status: 'todo',
@@ -111,7 +111,7 @@ export function TaskForm({ task, onSubmit, onCancel }: TaskFormProps) {
         return;
       }
 
-      if (!formData.project) {
+      if (!formData.projectId) {
         toast({
           variant: 'destructive',
           title: 'Validation Error',
@@ -231,8 +231,8 @@ export function TaskForm({ task, onSubmit, onCancel }: TaskFormProps) {
         <div className="space-y-2">
           <Label htmlFor="project">Project</Label>
           <Select 
-            value={formData.project} 
-            onValueChange={(value) => setFormData({ ...formData, project: value })}
+            value={formData.projectId} 
+            onValueChange={(value) => setFormData({ ...formData, projectId: value })}
             disabled={projectsLoading}
           >
             <SelectTrigger>
@@ -246,7 +246,7 @@ export function TaskForm({ task, onSubmit, onCancel }: TaskFormProps) {
                 </div>
               ) : (
                 projects.map((project) => (
-                  <SelectItem key={project._id} value={project.name}>
+                  <SelectItem key={project._id} value={project._id}>
                     {project.name}
                   </SelectItem>
                 ))

@@ -1,6 +1,6 @@
 // Common types shared between frontend and backend
 
-export type TaskStatus = 'todo' | 'in-progress' | 'done';
+export type TaskStatus = 'pending' | 'in-progress' | 'completed' | 'approved' | 'rejected';
 export type TaskPriority = 'low' | 'medium' | 'high';
 
 export interface Task {

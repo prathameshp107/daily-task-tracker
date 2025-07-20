@@ -8,8 +8,8 @@ export async function authenticateToken(req: NextRequest) {
   const token = authHeader && authHeader.split(' ')[1];
 
   // console.log('[AUTH] Request headers:', req.headers);
-  console.log('[AUTH] Authorization header:', authHeader);
-  console.log('[AUTH] Token:', token);
+  // console.log('[AUTH] Authorization header:', authHeader);
+  // console.log('[AUTH] Token:', token);
 
   if (!token) {
     console.log('[AUTH] No token provided');
@@ -21,7 +21,7 @@ export async function authenticateToken(req: NextRequest) {
 
   try {
     const decoded = jwt.verify(token, process.env.JWT_SECRET!);
-    console.log('[AUTH] Decoded JWT payload:', decoded);
+    // console.log('[AUTH] Decoded JWT payload:', decoded);
 
     // Type guard for userId
     const userId = (typeof decoded === 'object' && decoded !== null && 'userId' in decoded)
@@ -42,7 +42,7 @@ export async function authenticateToken(req: NextRequest) {
       { _id: new ObjectId(userId) },
       { projection: { password: 0 } }
     );
-    console.log('[AUTH] User lookup result:', user);
+    // console.log('[AUTH] User lookup result:', user);
 
     if (!user) {
       console.log('[AUTH] User not found for userId:', userId);

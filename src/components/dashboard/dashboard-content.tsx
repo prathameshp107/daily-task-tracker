@@ -20,7 +20,7 @@ interface TaskFormData {
   description: string;
   totalHours: number;
   approvedHours: number;
-  project: string;
+  projectId: string; // <-- use projectId
   month: string;
   note: string;
   status: 'todo' | 'in-progress' | 'done';
@@ -88,7 +88,7 @@ export function DashboardContent() {
     if (selectedProject === 'all') {
       setFilteredTasks(tasks)
     } else {
-      const filtered = tasks.filter(task => task.project === selectedProject)
+      const filtered = tasks.filter(task => task.projectId === selectedProject)
       setFilteredTasks(filtered)
     }
   }, [tasks, selectedProject])
@@ -96,15 +96,21 @@ export function DashboardContent() {
   const addTask = async (taskData: TaskFormData) => {
     try {
       const newTask = await taskService.createTask({
-        title: taskData.description,
+        title: taskData.description, // or taskData.title if available
         description: taskData.description,
         type: taskData.taskType,
-        estimatedHours: taskData.totalHours,
-        actualHours: taskData.approvedHours,
-        project: taskData.project,
-        month: taskData.month,
-        status: taskData.status,
+        projectId: taskData.projectId,
+        status:
+          taskData.status === 'todo'
+            ? 'pending'
+            : taskData.status === 'done'
+            ? 'completed'
+            : taskData.status,
+        totalHours: taskData.totalHours,
+        approvedHours: taskData.approvedHours,
         note: taskData.note,
+        month: taskData.month,
+        date: new Date().toISOString().split('T')[0],
         completed: false,
       });
       setTasks([...tasks, newTask]);
@@ -272,15 +278,21 @@ export function DashboardContent() {
                       // Update existing task
                       try {
                         const updatedTask = await taskService.updateTask(currentTask._id, {
-                          title: taskData.description,
+                          title: taskData.description, // or taskData.title if available
                           description: taskData.description,
                           type: taskData.taskType,
-                          estimatedHours: taskData.totalHours,
-                          actualHours: taskData.approvedHours,
-                          project: taskData.project,
-                          month: taskData.month,
-                          status: taskData.status,
+                          projectId: taskData.projectId,
+                          status:
+                            taskData.status === 'todo'
+                              ? 'pending'
+                              : taskData.status === 'done'
+                              ? 'completed'
+                              : taskData.status,
+                          totalHours: taskData.totalHours,
+                          approvedHours: taskData.approvedHours,
                           note: taskData.note,
+                          month: taskData.month,
+                          date: new Date().toISOString().split('T')[0],
                           completed: currentTask.completed,
                         });
                         setTasks(tasks.map(t => t._id === currentTask._id ? updatedTask : t));
