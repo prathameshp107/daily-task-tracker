@@ -142,11 +142,11 @@ export function ProjectToolsIntegration() {
 
   const onJiraSubmit = (data: z.infer<typeof jiraSchema>) => {
     if (!selectedProject) {
-      toast({
+    toast({
         title: 'Select a project',
         description: 'Please select a project to save this integration.',
         variant: 'destructive',
-      });
+    });
       return;
     }
     saveIntegrationForProject(selectedProject, 'jira', data);
@@ -156,11 +156,11 @@ export function ProjectToolsIntegration() {
 
   const onRedmineSubmit = (data: z.infer<typeof redmineSchema>) => {
     if (!selectedProject) {
-      toast({
+    toast({
         title: 'Select a project',
         description: 'Please select a project to save this integration.',
         variant: 'destructive',
-      });
+    });
       return;
     }
     saveIntegrationForProject(selectedProject, 'redmine', data);
@@ -173,18 +173,18 @@ export function ProjectToolsIntegration() {
     try {
       const success = await integrationService.testConnection(service, integrations[service] || {});
       
-      if (success) {
-        toast({
-          title: 'Connection successful',
-          description: `Successfully connected to ${service}.`,
-        });
-      } else {
-        toast({
-          title: 'Connection failed',
-          description: `Could not connect to ${service}. Please check your settings.`,
-          variant: 'destructive',
-        });
-      }
+        if (success) {
+          toast({
+            title: 'Connection successful',
+            description: `Successfully connected to ${service}.`,
+          });
+        } else {
+          toast({
+            title: 'Connection failed',
+            description: `Could not connect to ${service}. Please check your settings.`,
+            variant: 'destructive',
+          });
+        }
     } catch (err) {
       console.error('Connection test failed:', err);
       toast({
@@ -262,20 +262,20 @@ export function ProjectToolsIntegration() {
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <Card>
-          <CardHeader>
-            <CardTitle>Jira Integration</CardTitle>
-            <CardDescription>
-              Connect your Jira account to sync issues and track time.
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <Form {...jiraForm}>
-              <form 
-                onSubmit={jiraForm.handleSubmit(onJiraSubmit)}
-                className="space-y-6"
-              >
-                <div className="space-y-4">
+          <Card>
+            <CardHeader>
+              <CardTitle>Jira Integration</CardTitle>
+              <CardDescription>
+                Connect your Jira account to sync issues and track time.
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <Form {...jiraForm}>
+                <form 
+                  onSubmit={jiraForm.handleSubmit(onJiraSubmit)}
+                  className="space-y-6"
+                >
+                  <div className="space-y-4">
                   <FormItem>
                     <FormLabel>Project</FormLabel>
                     <Select value={selectedProject} onValueChange={setSelectedProject}>
@@ -292,66 +292,66 @@ export function ProjectToolsIntegration() {
                       </SelectContent>
                     </Select>
                   </FormItem>
-                  <FormField
-                    control={jiraForm.control}
-                    name="url"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Jira URL</FormLabel>
-                        <FormControl>
-                          <Input 
-                            placeholder="https://your-domain.atlassian.net" 
-                            {...field} 
-                          />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
+                    <FormField
+                      control={jiraForm.control}
+                      name="url"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Jira URL</FormLabel>
+                          <FormControl>
+                            <Input 
+                              placeholder="https://your-domain.atlassian.net" 
+                              {...field} 
+                            />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
 
-                  <FormField
-                    control={jiraForm.control}
-                    name="projectKey"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Project URL</FormLabel>
-                        <FormControl>
-                          <Input 
-                            placeholder="https://virtua-research.atlassian.net/jira/software/projects/IAC/boards/1" 
-                            {...field} 
-                          />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
+                    <FormField
+                      control={jiraForm.control}
+                      name="projectKey"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Project URL</FormLabel>
+                          <FormControl>
+                            <Input 
+                              placeholder="https://virtua-research.atlassian.net/jira/software/projects/IAC/boards/1" 
+                              {...field} 
+                            />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
 
-                </div>
+                  </div>
 
-                <div className="flex justify-between pt-2">
-                  <Button type="submit" disabled={jiraForm.formState.isSubmitting}>
-                    {jiraForm.formState.isSubmitting ? 'Saving...' : 'Save Settings'}
-                  </Button>
-                </div>
-              </form>
-            </Form>
-          </CardContent>
-        </Card>
+                  <div className="flex justify-between pt-2">
+                    <Button type="submit" disabled={jiraForm.formState.isSubmitting}>
+                      {jiraForm.formState.isSubmitting ? 'Saving...' : 'Save Settings'}
+                    </Button>
+                  </div>
+                </form>
+              </Form>
+            </CardContent>
+          </Card>
 
-        <Card>
-          <CardHeader>
-            <CardTitle>Redmine Integration</CardTitle>
-            <CardDescription>
-              Connect your Redmine instance to track issues and time entries.
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <Form {...redmineForm}>
-              <form 
-                onSubmit={redmineForm.handleSubmit(onRedmineSubmit)}
-                className="space-y-6"
-              >
-                <div className="space-y-4">
+          <Card>
+            <CardHeader>
+              <CardTitle>Redmine Integration</CardTitle>
+              <CardDescription>
+                Connect your Redmine instance to track issues and time entries.
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <Form {...redmineForm}>
+                <form 
+                  onSubmit={redmineForm.handleSubmit(onRedmineSubmit)}
+                  className="space-y-6"
+                >
+                  <div className="space-y-4">
                   <FormItem>
                     <FormLabel>Project</FormLabel>
                     <Select value={selectedProject} onValueChange={setSelectedProject}>
@@ -368,53 +368,53 @@ export function ProjectToolsIntegration() {
                       </SelectContent>
                     </Select>
                   </FormItem>
-                  <FormField
-                    control={redmineForm.control}
-                    name="url"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Redmine URL</FormLabel>
-                        <FormControl>
-                          <Input 
-                            placeholder="https://redmine.example.com" 
-                            {...field} 
-                          />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
+                    <FormField
+                      control={redmineForm.control}
+                      name="url"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Redmine URL</FormLabel>
+                          <FormControl>
+                            <Input 
+                              placeholder="https://redmine.example.com" 
+                              {...field} 
+                            />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
 
 
-                  <FormField
-                    control={redmineForm.control}
-                    name="projectId"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Project URL</FormLabel>
-                        <FormControl>
-                          <Input 
-                            placeholder="https://rm.virtuaresearch.com/projects/api-improvement" 
-                            {...field} 
-                          />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
+                    <FormField
+                      control={redmineForm.control}
+                      name="projectId"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Project URL</FormLabel>
+                          <FormControl>
+                            <Input 
+                              placeholder="https://rm.virtuaresearch.com/projects/api-improvement" 
+                              {...field} 
+                            />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
 
-                </div>
+                  </div>
 
-                <div className="flex justify-between pt-2">
-                  <Button type="submit" disabled={redmineForm.formState.isSubmitting}>
-                    {redmineForm.formState.isSubmitting ? 'Saving...' : 'Save Settings'}
-                  </Button>
-                </div>
-              </form>
-            </Form>
-          </CardContent>
-        </Card>
-      </div>
+                  <div className="flex justify-between pt-2">
+                    <Button type="submit" disabled={redmineForm.formState.isSubmitting}>
+                      {redmineForm.formState.isSubmitting ? 'Saving...' : 'Save Settings'}
+                    </Button>
+                  </div>
+                </form>
+              </Form>
+            </CardContent>
+          </Card>
+              </div>
     </div>
   );
 }

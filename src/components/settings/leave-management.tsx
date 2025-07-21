@@ -106,7 +106,7 @@ export function LeaveManagement() {
           type: data.type,
           notes: data.notes || '',
         });
-        
+
         setLeaves([...leaves, newLeave]);
         toast({
           title: 'Success',
@@ -115,7 +115,7 @@ export function LeaveManagement() {
       }
       
       // Reset form and close it
-      form.reset();
+    form.reset();
       setIsFormOpen(false);
       setIsEditing(false);
       setCurrentLeave(null);
@@ -162,14 +162,14 @@ export function LeaveManagement() {
 
   const getTypeBadge = (typeId: string) => {
     const type = leaveTypes.find(t => t.id === typeId);
-    return (
+      return (
       <Badge 
         className={`${type?.color || 'bg-gray-500'} text-white`}
         variant="outline"
       >
         {type?.label || typeId}
       </Badge>
-    );
+      );
   };
 
   if (loading) {
@@ -231,21 +231,21 @@ export function LeaveManagement() {
                 {form.formState.errors.date && (
                   <p className="text-red-500 text-xs mt-1">{form.formState.errors.date.message}</p>
                 )}
-              </div>
-              <div>
+      </div>
+        <div>
                 <Label htmlFor="type" className="text-sm font-medium">Leave Type</Label>
                 <Select onValueChange={form.setValue} defaultValue={form.watch('type')}>
                   <SelectTrigger className="mt-1">
                     <SelectValue placeholder="Select a leave type" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {leaveTypes.map((type) => (
-                      <SelectItem key={type.id} value={type.id}>
+                        </SelectTrigger>
+                      <SelectContent>
+                        {leaveTypes.map((type) => (
+                          <SelectItem key={type.id} value={type.id}>
                         {type.label}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
                 {form.formState.errors.type && (
                   <p className="text-red-500 text-xs mt-1">{form.formState.errors.type.message}</p>
                 )}
@@ -261,15 +261,15 @@ export function LeaveManagement() {
               />
             </div>
 
-            <Button type="submit" className="w-full">
+              <Button type="submit" className="w-full">
               {loading ? (
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />
               ) : (
                 <Plus className="mr-2 h-4 w-4" />
               )}
               {isEditing ? 'Update Leave' : 'Add Leave'}
-            </Button>
-          </form>
+              </Button>
+            </form>
         </div>
       )}
 
@@ -312,10 +312,10 @@ export function LeaveManagement() {
                   </Button>
                 </TableCell>
               </TableRow>
-            ))}
+              ))}
           </TableBody>
         </Table>
-      )}
+          )}
     </div>
   );
 }

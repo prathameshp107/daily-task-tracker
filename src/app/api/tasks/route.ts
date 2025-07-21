@@ -183,10 +183,20 @@ export async function POST(req: NextRequest) {
 
     const result = await db.collection('tasks').insertOne(task);
     
+    // Add projectName and project fields to match GET handler
+    const responseTask = {
+      ...task,
+      _id: result.insertedId,
+      projectName: project.name,
+      project: project.name,
+      taskNumber: task.taskNumber ? String(task.taskNumber) : '',
+    };
+    console.log('[TASKS][POST] responseTask:', responseTask);
+    
     return NextResponse.json(
       { 
         success: true, 
-        data: { ...task, _id: result.insertedId },
+        data: responseTask,
         message: 'Task created successfully'
       },
       { status: 201 }

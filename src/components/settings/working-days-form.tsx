@@ -127,7 +127,7 @@ export function WorkingDaysForm() {
 
   const onSubmit = async (data: WorkingDaysFormValues) => {
     try {
-      setIsLoading(true);
+    setIsLoading(true);
       
       // Save settings to service
       await leaveService.updateWorkingDaysConfig({
@@ -207,8 +207,8 @@ export function WorkingDaysForm() {
   // Calculate leave days for the selected month
   const leavesForMonth = leaves.filter((leave: any) => {
     const leaveStart = new Date(leave.date);
-    return leaveStart.getMonth() === monthIndex && leaveStart.getFullYear() === year;
-  });
+        return leaveStart.getMonth() === monthIndex && leaveStart.getFullYear() === year;
+      });
   const totalLeaveDays = leavesForMonth.length;
 
   const finalWorkingDays = totalWorkingDays - totalLeaveDays;

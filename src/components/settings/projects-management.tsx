@@ -87,7 +87,7 @@ export function ProjectsManagement({ selectedMonth = 'all' }: ProjectsManagement
         });
       } finally {
         setLoading(false);
-      }
+    }
     };
 
     loadProjects();
@@ -121,16 +121,16 @@ export function ProjectsManagement({ selectedMonth = 'all' }: ProjectsManagement
           color: data.color,
         });
         
-        setProjects(projects.map(project => 
+      setProjects(projects.map(project => 
           project._id === currentProject._id ? updatedProject : project
-        ));
+      ));
         
         toast({
           title: 'Success',
           description: 'Project updated successfully.',
         });
-      } else {
-        // Add new project
+    } else {
+      // Add new project
         const newProject = await projectService.createProject({
           name: data.name,
           description: data.description || '',
@@ -141,17 +141,17 @@ export function ProjectsManagement({ selectedMonth = 'all' }: ProjectsManagement
           color: data.color,
         });
         
-        setProjects([...projects, newProject]);
+      setProjects([...projects, newProject]);
         toast({
           title: 'Success',
           description: 'Project created successfully.',
         });
-      }
-      
-      // Reset form and close it
-      form.reset();
-      setIsFormOpen(false);
-      setIsEditing(false);
+    }
+    
+    // Reset form and close it
+    form.reset();
+    setIsFormOpen(false);
+    setIsEditing(false);
       setCurrentProject(null);
     } catch (err) {
       console.error('Failed to save project:', err);

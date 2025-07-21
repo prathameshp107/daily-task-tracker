@@ -85,7 +85,7 @@ export const taskService = {
   async createTask(taskData: CreateTaskDto): Promise<Task> {
     try {
       const response = await apiClient.post('/tasks', taskData);
-      return response.data;
+      return response.data.data;
     } catch (error) {
       console.error('Error creating task:', error);
       throw error;

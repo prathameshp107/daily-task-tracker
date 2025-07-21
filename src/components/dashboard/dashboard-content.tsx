@@ -51,6 +51,7 @@ const normalizeTask = (task: Partial<Task>): Task => ({
   updatedAt: task.updatedAt || new Date().toISOString(),
   completed: task.completed || false,
   assignedTo: task.assignedTo || '',
+  taskNumber: task.taskNumber || '',
 });
 
 // Type guards
@@ -153,7 +154,8 @@ export function DashboardContent() {
         completed: false,
         taskNumber: taskData.taskNumber, // <-- add this line
       });
-      setTasks([...tasks, normalizeTask(newTask)]);
+      setTasks(prev => [...prev, normalizeTask(newTask)]);
+      setSelectedProject('all');
       setIsModalOpen(false);
       toast({
         title: 'Success',

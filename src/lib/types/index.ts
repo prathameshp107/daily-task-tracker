@@ -27,6 +27,7 @@ export interface Task {
   updatedAt: Date | string;
   completed: boolean;
   assignedTo?: string;
+  taskNumber: string;
 }
 
 export interface Project {
