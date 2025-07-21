@@ -48,6 +48,7 @@ interface Filters {
 
 interface VisibleColumns {
   taskNumber: boolean;
+  taskLink: boolean;
   taskType: boolean;
   description: boolean;
   totalHours: boolean;
@@ -89,6 +90,7 @@ const getTaskProperties = (task: Task | LegacyTask) => {
       dueDate: new Date().toISOString(),
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       taskNumber: (task as any).taskNumber || '' // Add taskNumber for LegacyTask
     };
   }
@@ -137,6 +139,7 @@ const getTaskProperties = (task: Task | LegacyTask) => {
     dueDate: task.dueDate || dueDate.toISOString(),
     createdAt: (task as Task & { createdAt?: string }).createdAt || new Date().toISOString(),
     updatedAt: (task as Task & { updatedAt?: string }).updatedAt || new Date().toISOString(),
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     taskNumber: (task as any).taskNumber || '' // Add taskNumber for Task
   };
 };
@@ -171,6 +174,7 @@ const TaskList: React.FC<TaskListProps> = ({
   const [isColumnMenuOpen, setIsColumnMenuOpen] = useState(false);
   const [visibleColumns, setVisibleColumns] = useState<VisibleColumns>({
     taskNumber: true,
+    taskLink: true,
     taskType: true,
     description: true,
     totalHours: true,
@@ -322,6 +326,7 @@ const TaskList: React.FC<TaskListProps> = ({
     <TableHeader>
       <TableRow>
         {visibleColumns.taskNumber && <TableHead>Task Number</TableHead>}
+        {visibleColumns.taskLink && <TableHead>Task Link</TableHead>}
         {visibleColumns.taskType && <TableHead>Type</TableHead>}
         {visibleColumns.description && <TableHead>Description</TableHead>}
         {visibleColumns.totalHours && <TableHead>Total Hours</TableHead>}
@@ -388,6 +393,11 @@ const TaskList: React.FC<TaskListProps> = ({
     return (
         <TableRow key={id}>
           {visibleColumns.taskNumber && <TableCell className="font-medium">{taskProps.taskNumber}</TableCell>}
+          {visibleColumns.taskLink && (
+            <TableCell>
+              <a href={`/tasks/${id}`} target="_blank" rel="noopener noreferrer" className="text-blue-600 underline">{taskProps.taskNumber}</a>
+            </TableCell>
+          )}
           {visibleColumns.taskType && <TableCell>{type}</TableCell>}
           {visibleColumns.description && <TableCell className="max-w-xs truncate">{description}</TableCell>}
           {visibleColumns.totalHours && <TableCell>{totalHours}</TableCell>}
@@ -635,6 +645,7 @@ const TaskList: React.FC<TaskListProps> = ({
                 });
                 setVisibleColumns({
                   taskNumber: true,
+                  taskLink: true,
                   taskType: true,
                   description: true,
                   totalHours: true,
@@ -642,7 +653,7 @@ const TaskList: React.FC<TaskListProps> = ({
                   project: true,
                   month: true,
                   status: true,
-                  note: true,
+                  note: false,
                   actions: true,
                 });
               }}

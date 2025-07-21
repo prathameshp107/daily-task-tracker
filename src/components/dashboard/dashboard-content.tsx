@@ -177,7 +177,7 @@ export function DashboardContent() {
       const updatedTask = await taskService.updateTask(taskId, {
         ...task,
         completed: !task.completed,
-        status: !task.completed ? 'done' : 'todo' as const,
+        status: !task.completed ? 'completed' : 'pending',
       });
       
       setTasks(tasks.map(t => t._id === taskId ? updatedTask : t));
