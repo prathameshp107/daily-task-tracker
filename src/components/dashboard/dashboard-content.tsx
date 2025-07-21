@@ -384,6 +384,7 @@ export function DashboardContent() {
             <div className="overflow-x-auto w-full">
               <TaskList
                 tasks={filteredTasks}
+                projects={projects}
                 onToggleTask={toggleTask}
                 onDeleteTask={handleDeleteTask}
                 onEditTask={handleEditTask}

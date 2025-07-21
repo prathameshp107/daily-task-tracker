@@ -29,6 +29,7 @@ type LegacyTask = {
 
 interface TaskListProps {
   tasks: (Task | LegacyTask)[];
+  projects: any[];
   onToggleTask: (taskId: string) => void;
   onDeleteTask: (taskId: string) => void;
   onEditTask: (task: Task | LegacyTask) => void;
@@ -146,6 +147,7 @@ const getTaskProperties = (task: Task | LegacyTask) => {
 
 const TaskList: React.FC<TaskListProps> = ({
   tasks,
+  projects,
   onToggleTask,
   onDeleteTask,
   onEditTask,
@@ -214,7 +216,7 @@ const TaskList: React.FC<TaskListProps> = ({
   }, [tasks, filters]);
 
   // Get unique values for filter dropdowns
-  const { taskTypes, projects, months, statuses } = useMemo(() => {
+  const { taskTypes, projects: allProjects, months, statuses } = useMemo(() => {
     const typeSet = new Set<string>();
     const projectSet = new Set<string>();
     const monthSet = new Set<string>();
@@ -304,7 +306,7 @@ const TaskList: React.FC<TaskListProps> = ({
     {
       id: 'project',
       label: 'Project',
-      options: projects,
+      options: allProjects,
       icon: <span className="w-4 h-4 mr-2">P</span>
     },
     {
@@ -395,7 +397,22 @@ const TaskList: React.FC<TaskListProps> = ({
           {visibleColumns.taskNumber && <TableCell className="font-medium">{taskProps.taskNumber}</TableCell>}
           {visibleColumns.taskLink && (
             <TableCell>
-              <a href={`/tasks/${id}`} target="_blank" rel="noopener noreferrer" className="text-blue-600 underline">{taskProps.taskNumber}</a>
+              {(() => {
+                const projectObj = projects.find(p => p._id === taskProps.projectId);
+                const jiraUrl = projectObj?.integrations?.jira?.url;
+                const jiraKey = projectObj?.integrations?.jira?.projectKey;
+                const taskNumber = taskProps.taskNumber;
+                if (jiraUrl && jiraKey && taskNumber) {
+                  const jiraLink = `${jiraUrl.replace(/\/$/, '')}/${jiraKey}-${taskNumber}`;
+                  return (
+                    <a href={jiraLink} target="_blank" rel="noopener noreferrer" className="text-blue-600 underline">{taskNumber}</a>
+                  );
+                }
+                // Fallback: default link
+                return (
+                  <a href={`/tasks/${id}`} target="_blank" rel="noopener noreferrer" className="text-blue-600 underline">{taskNumber}</a>
+                );
+              })()}
             </TableCell>
           )}
           {visibleColumns.taskType && <TableCell>{type}</TableCell>}
@@ -446,7 +463,7 @@ const TaskList: React.FC<TaskListProps> = ({
       </TableRow>
       );
     });
-  }, [filteredTasks, visibleColumns, onEditTask, onDeleteTask, loading, error]);
+  }, [filteredTasks, visibleColumns, onEditTask, onDeleteTask, loading, error, projects]);
 
   // Close dropdowns when clicking outside
   useEffect(() => {
