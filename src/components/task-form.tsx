@@ -19,6 +19,7 @@ interface TaskFormData {
   month: string;
   note: string;
   status: 'todo' | 'in-progress' | 'done';
+  taskNumber: string;
 }
 
 interface TaskFormProps {
@@ -42,7 +43,11 @@ export function TaskForm({ task, onSubmit, onCancel }: TaskFormProps) {
     month: new Date().toLocaleString('default', { month: 'long' }),
     note: '',
     status: 'todo',
+    taskNumber: '',
   });
+  const [totalHoursInput, setTotalHoursInput] = useState('0');
+  const [approvedHoursInput, setApprovedHoursInput] = useState('0');
+  const [error, setError] = useState("");
 
   // Load projects from service
   useEffect(() => {
@@ -79,7 +84,10 @@ export function TaskForm({ task, onSubmit, onCancel }: TaskFormProps) {
         month: task.month || new Date().toLocaleString('default', { month: 'long' }),
         note: task.note || '',
         status: (task.status === 'pending' ? 'todo' : task.status === 'completed' ? 'done' : task.status) as 'todo' | 'in-progress' | 'done',
+        taskNumber: task.taskNumber || '',
       });
+      setTotalHoursInput(String(task.estimatedHours || task.totalHours || ''));
+      setApprovedHoursInput(String(task.actualHours || task.approvedHours || ''));
     } else {
       // Reset form for new task
       setFormData({
@@ -92,7 +100,10 @@ export function TaskForm({ task, onSubmit, onCancel }: TaskFormProps) {
         month: new Date().toLocaleString('default', { month: 'long' }),
         note: '',
         status: 'todo',
+        taskNumber: '',
       });
+      setTotalHoursInput('');
+      setApprovedHoursInput('');
     }
   }, [task]);
 
@@ -102,6 +113,16 @@ export function TaskForm({ task, onSubmit, onCancel }: TaskFormProps) {
 
     try {
       // Validate required fields
+      if (!formData.taskType) {
+        setError("Task type is required");
+        toast({
+          variant: 'destructive',
+          title: 'Validation Error',
+          description: 'Task type is required.',
+        });
+        return;
+      }
+
       if (!formData.description.trim()) {
         toast({
           variant: 'destructive',
@@ -145,7 +166,8 @@ export function TaskForm({ task, onSubmit, onCancel }: TaskFormProps) {
   return (
     <form onSubmit={handleSubmit} className="space-y-6">
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <div className="space-y-2">
+        {/* Remove the Task ID input field from the form UI */}
+        {/* <div className="space-y-2">
           <Label htmlFor="taskId">Task ID</Label>
           <Input
             id="taskId"
@@ -153,6 +175,17 @@ export function TaskForm({ task, onSubmit, onCancel }: TaskFormProps) {
             onChange={(e) => setFormData({ ...formData, taskId: e.target.value })}
             placeholder="Enter task ID"
             disabled
+          />
+        </div> */}
+
+        <div className="space-y-2">
+          <Label htmlFor="taskNumber">Task Number</Label>
+          <Input
+            id="taskNumber"
+            value={formData.taskNumber}
+            onChange={(e) => setFormData({ ...formData, taskNumber: e.target.value })}
+            placeholder="Enter task number"
+            required
           />
         </div>
 
@@ -170,6 +203,7 @@ export function TaskForm({ task, onSubmit, onCancel }: TaskFormProps) {
               ))}
             </SelectContent>
           </Select>
+          {error && <div style={{ color: 'red', marginTop: 4 }}>{error}</div>}
         </div>
       </div>
 
@@ -193,8 +227,11 @@ export function TaskForm({ task, onSubmit, onCancel }: TaskFormProps) {
             type="number"
             min="0"
             step="0.5"
-            value={formData.totalHours}
-            onChange={(e) => setFormData({ ...formData, totalHours: parseFloat(e.target.value) || 0 })}
+            value={totalHoursInput}
+            onChange={(e) => {
+              setTotalHoursInput(e.target.value);
+              setFormData({ ...formData, totalHours: e.target.value === '' ? 0 : parseFloat(e.target.value) });
+            }}
             placeholder="0"
           />
         </div>
@@ -206,8 +243,11 @@ export function TaskForm({ task, onSubmit, onCancel }: TaskFormProps) {
             type="number"
             min="0"
             step="0.5"
-            value={formData.approvedHours}
-            onChange={(e) => setFormData({ ...formData, approvedHours: parseFloat(e.target.value) || 0 })}
+            value={approvedHoursInput}
+            onChange={(e) => {
+              setApprovedHoursInput(e.target.value);
+              setFormData({ ...formData, approvedHours: e.target.value === '' ? 0 : parseFloat(e.target.value) });
+            }}
             placeholder="0"
           />
         </div>
@@ -287,7 +327,7 @@ export function TaskForm({ task, onSubmit, onCancel }: TaskFormProps) {
         <Button type="button" variant="outline" onClick={onCancel}>
           Cancel
         </Button>
-        <Button type="submit" disabled={loading || projectsLoading}>
+        <Button type="submit" disabled={loading || projectsLoading || !formData.taskType}>
           {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
           {task ? 'Update Task' : 'Create Task'}
         </Button>

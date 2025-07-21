@@ -4,17 +4,17 @@ import { Task, TaskStatus, TaskPriority } from '@/lib/types';
 export interface CreateTaskDto {
   title: string;
   description: string;
+  type: string;
   projectId: string;
-  projectName: string;
-  status: TaskStatus;
-  priority: TaskPriority;
-  estimatedHours: number;
-  actualHours: number;
-  dueDate: string; // ISO date string
-  createdBy: string;
-  assignedTo?: string;
-  labels?: string[];
+  projectName: string; // <-- add projectName
+  status: string;
+  totalHours: number;
+  approvedHours: number;
+  note?: string;
+  month?: string;
+  date?: string;
   completed: boolean;
+  taskNumber: string; // <-- add this line
 }
 
 export interface UpdateTaskDto extends Partial<CreateTaskDto> {}

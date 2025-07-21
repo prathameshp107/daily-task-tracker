@@ -12,7 +12,7 @@ import { Plus, X, FolderOpen, Loader2 } from 'lucide-react';
 import { format } from 'date-fns';
 import { taskService, projectService } from '@/lib/services';
 import { useToast } from '@/components/ui/use-toast';
-import { Task, Project, isLegacyTask, toLegacyTask, fromLegacyTask } from '@/lib/types';
+import { Task, Project, toLegacyTask, fromLegacyTask, LegacyTask } from '@/lib/types';
 
 interface TaskFormData {
   taskId: string;
@@ -24,6 +24,42 @@ interface TaskFormData {
   month: string;
   note: string;
   status: 'todo' | 'in-progress' | 'done';
+  taskNumber: string; // Added taskNumber to the interface
+}
+
+const normalizeTask = (task: Partial<Task>): Task => ({
+  _id: task._id || '',
+  id: task.id || task._id || '',
+  title: task.title || '',
+  description: task.description || '',
+  projectId: task.projectId || '',
+  project: task.project || '',
+  status: task.status || 'pending',
+  type: task.type || '',
+  totalHours: task.totalHours || 0,
+  approvedHours: task.approvedHours || 0,
+  month: task.month || '',
+  note: task.note || '',
+  dueDate: task.dueDate || '',
+  estimatedHours: task.estimatedHours || 0,
+  actualHours: task.actualHours || 0,
+  labels: task.labels || [],
+  priority: task.priority || 'medium',
+  assigneeId: task.assigneeId || '',
+  reporterId: task.reporterId || '',
+  createdAt: task.createdAt || new Date().toISOString(),
+  updatedAt: task.updatedAt || new Date().toISOString(),
+  completed: task.completed || false,
+  assignedTo: task.assignedTo || '',
+});
+
+// Type guards
+export function isLegacyTask(task: unknown): task is LegacyTask {
+  return typeof task === 'object' && task !== null && 'taskId' in task && 'taskType' in task;
+}
+
+export function isTask(task: unknown): task is Task {
+  return typeof task === 'object' && task !== null && '_id' in task && 'title' in task && 'projectId' in task;
 }
 
 export function DashboardContent() {
@@ -36,7 +72,7 @@ export function DashboardContent() {
   const [selectedProject, setSelectedProject] = useState<string>('all');
   const [filteredTasks, setFilteredTasks] = useState<Task[]>([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [currentTask, setCurrentTask] = useState<Task | null>(null);
+  const [currentTask, setCurrentTask] = useState<Task | undefined>(undefined);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -51,7 +87,7 @@ export function DashboardContent() {
         const projectsData = await projectService.getProjects();
         setProjects(projectsData);
         
-      } catch (err) {
+      } catch (err: unknown) {
         console.error('Failed to fetch data:', err);
         const errorMessage = err instanceof Error ? err.message : 'Failed to load data';
         setError(errorMessage);
@@ -95,11 +131,14 @@ export function DashboardContent() {
 
   const addTask = async (taskData: TaskFormData) => {
     try {
+      const selectedProjectObj = projects.find(p => p._id === taskData.projectId);
+      const projectName = selectedProjectObj ? selectedProjectObj.name : '';
       const newTask = await taskService.createTask({
         title: taskData.description, // or taskData.title if available
         description: taskData.description,
         type: taskData.taskType,
         projectId: taskData.projectId,
+        projectName, // <-- add projectName
         status:
           taskData.status === 'todo'
             ? 'pending'
@@ -112,14 +151,15 @@ export function DashboardContent() {
         month: taskData.month,
         date: new Date().toISOString().split('T')[0],
         completed: false,
+        taskNumber: taskData.taskNumber, // <-- add this line
       });
-      setTasks([...tasks, newTask]);
+      setTasks([...tasks, normalizeTask(newTask)]);
       setIsModalOpen(false);
       toast({
         title: 'Success',
         description: 'Task created successfully',
       });
-    } catch (err) {
+    } catch (err: unknown) {
       console.error('Failed to create task:', err);
       toast({
         variant: 'destructive',
@@ -141,7 +181,7 @@ export function DashboardContent() {
       });
       
       setTasks(tasks.map(t => t._id === taskId ? updatedTask : t));
-    } catch (err) {
+    } catch (err: unknown) {
       console.error('Failed to update task:', err);
       toast({
         variant: 'destructive',
@@ -160,7 +200,7 @@ export function DashboardContent() {
           title: 'Success',
           description: 'Task deleted successfully',
         });
-      } catch (err) {
+      } catch (err: unknown) {
         console.error('Failed to delete task:', err);
         toast({
           variant: 'destructive',
@@ -171,8 +211,10 @@ export function DashboardContent() {
     }
   }
 
-  const handleEditTask = (taskToEdit: Task) => {
-    setCurrentTask(taskToEdit)
+  const handleEditTask = (taskToEdit: Task | LegacyTask) => {
+    if ('_id' in taskToEdit) {
+      setCurrentTask(taskToEdit);
+    }
     setIsModalOpen(true)
   }
 
@@ -189,7 +231,7 @@ export function DashboardContent() {
       a.click();
       document.body.removeChild(a);
       URL.revokeObjectURL(url);
-    } catch (err) {
+    } catch (err: unknown) {
       console.error('Export failed:', err);
       toast({
         variant: 'destructive',
@@ -225,7 +267,7 @@ export function DashboardContent() {
                 <SelectContent>
                   <SelectItem value="all">All Projects</SelectItem>
                   {projects.map((project) => (
-                    <SelectItem key={project.id} value={project.name}>
+                    <SelectItem key={project._id} value={project._id}>
                       <div className="flex items-center gap-2">
                         <div 
                           className="h-3 w-3 rounded-full" 
@@ -253,7 +295,7 @@ export function DashboardContent() {
                 <button
                   onClick={() => {
                     setIsModalOpen(false)
-                    setCurrentTask(null)
+                    setCurrentTask(undefined)
                   }}
                   className="absolute top-4 right-4 text-gray-400 hover:text-gray-600 focus:outline-none"
                   aria-label="Close"
@@ -277,11 +319,14 @@ export function DashboardContent() {
                     if (currentTask) {
                       // Update existing task
                       try {
+                        const selectedProjectObj = projects.find(p => p._id === taskData.projectId);
+                        const projectName = selectedProjectObj ? selectedProjectObj.name : '';
                         const updatedTask = await taskService.updateTask(currentTask._id, {
                           title: taskData.description, // or taskData.title if available
                           description: taskData.description,
                           type: taskData.taskType,
                           projectId: taskData.projectId,
+                          projectName, // <-- always send this
                           status:
                             taskData.status === 'todo'
                               ? 'pending'
@@ -297,12 +342,12 @@ export function DashboardContent() {
                         });
                         setTasks(tasks.map(t => t._id === currentTask._id ? updatedTask : t));
                         setIsModalOpen(false);
-                        setCurrentTask(null);
+                        setCurrentTask(undefined);
                         toast({
                           title: 'Success',
                           description: 'Task updated successfully',
                         });
-                      } catch (err) {
+                      } catch (err: unknown) {
                         console.error('Failed to update task:', err);
                         toast({
                           variant: 'destructive',
@@ -317,7 +362,7 @@ export function DashboardContent() {
                   }}
                   onCancel={() => {
                     setIsModalOpen(false);
-                    setCurrentTask(null);
+                    setCurrentTask(undefined);
                   }}
                 />
               </DialogContent>

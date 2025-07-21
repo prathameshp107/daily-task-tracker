@@ -47,7 +47,7 @@ interface Filters {
 }
 
 interface VisibleColumns {
-  taskId: boolean;
+  taskNumber: boolean;
   taskType: boolean;
   description: boolean;
   totalHours: boolean;
@@ -88,7 +88,8 @@ const getTaskProperties = (task: Task | LegacyTask) => {
       completed: task.completed,
       dueDate: new Date().toISOString(),
       createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString()
+      updatedAt: new Date().toISOString(),
+      taskNumber: (task as any).taskNumber || '' // Add taskNumber for LegacyTask
     };
   }
   
@@ -135,7 +136,8 @@ const getTaskProperties = (task: Task | LegacyTask) => {
     completed: task.completed || false,
     dueDate: task.dueDate || dueDate.toISOString(),
     createdAt: (task as Task & { createdAt?: string }).createdAt || new Date().toISOString(),
-    updatedAt: (task as Task & { updatedAt?: string }).updatedAt || new Date().toISOString()
+    updatedAt: (task as Task & { updatedAt?: string }).updatedAt || new Date().toISOString(),
+    taskNumber: (task as any).taskNumber || '' // Add taskNumber for Task
   };
 };
 
@@ -168,7 +170,7 @@ const TaskList: React.FC<TaskListProps> = ({
   // Track column visibility
   const [isColumnMenuOpen, setIsColumnMenuOpen] = useState(false);
   const [visibleColumns, setVisibleColumns] = useState<VisibleColumns>({
-    taskId: true,
+    taskNumber: true,
     taskType: true,
     description: true,
     totalHours: true,
@@ -319,7 +321,7 @@ const TaskList: React.FC<TaskListProps> = ({
   const renderTableHeader = () => (
     <TableHeader>
       <TableRow>
-        {visibleColumns.taskId && <TableHead>Task ID</TableHead>}
+        {visibleColumns.taskNumber && <TableHead>Task Number</TableHead>}
         {visibleColumns.taskType && <TableHead>Type</TableHead>}
         {visibleColumns.description && <TableHead>Description</TableHead>}
         {visibleColumns.totalHours && <TableHead>Total Hours</TableHead>}
@@ -385,7 +387,7 @@ const TaskList: React.FC<TaskListProps> = ({
 
     return (
         <TableRow key={id}>
-          {visibleColumns.taskId && <TableCell className="font-medium">{id}</TableCell>}
+          {visibleColumns.taskNumber && <TableCell className="font-medium">{taskProps.taskNumber}</TableCell>}
           {visibleColumns.taskType && <TableCell>{type}</TableCell>}
           {visibleColumns.description && <TableCell className="max-w-xs truncate">{description}</TableCell>}
           {visibleColumns.totalHours && <TableCell>{totalHours}</TableCell>}
@@ -632,7 +634,7 @@ const TaskList: React.FC<TaskListProps> = ({
                   taskId: ''
                 });
                 setVisibleColumns({
-                  taskId: true,
+                  taskNumber: true,
                   taskType: true,
                   description: true,
                   totalHours: true,

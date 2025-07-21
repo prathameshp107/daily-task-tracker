@@ -12,7 +12,7 @@ import { Switch } from "@/components/ui/switch";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { useToast } from "@/components/ui/use-toast";
 import { Loader2 } from "lucide-react";
-import { leaveService } from "@/lib/services";
+import { leaveService, workingDaysService } from "@/lib/services";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 
 const MONTHS = [
@@ -88,7 +88,7 @@ export function WorkingDaysForm() {
         setError(null);
         
         // Load working days config
-        const settings = await leaveService.getWorkingDaysConfig();
+        const settings = await workingDaysService.getConfig();
         const month = MONTHS[new Date().getMonth()];
         
         // Find settings for current month or use defaults

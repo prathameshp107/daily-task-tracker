@@ -12,8 +12,10 @@ import { Switch } from '@/components/ui/switch';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { toast } from '@/components/ui/use-toast';
 import { Loader2 } from 'lucide-react';
-import { projectService, integrationService } from '@/lib/services';
+import { projectService } from '@/lib/services';
+import integrationService from '@/lib/services/integration.service';
 import { Project } from '@/lib/types';
+import { Form, FormItem, FormField, FormLabel, FormControl, FormMessage } from '@/components/ui/form';
 
 const jiraSchema = z.object({
   url: z.string().url('Please enter a valid URL'),

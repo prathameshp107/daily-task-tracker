@@ -65,9 +65,22 @@ export async function GET(req: NextRequest) {
       .sort({ date: -1, createdAt: -1 })
       .toArray();
 
+    // Fetch all projects for the user to map projectId to project name
+    const projects = await db.collection('projects')
+      .find({ userId: new ObjectId(userId) })
+      .toArray();
+    const projectMap = new Map(projects.map(p => [p._id.toString(), p.name]));
+
+    // Add projectName to each task
+    const tasksWithProjectName = tasks.map(task => ({
+      ...task,
+      projectName: projectMap.get(task.projectId?.toString?.()) || null,
+      project: projectMap.get(task.projectId?.toString?.()) || null,
+    }));
+
     return NextResponse.json({
       success: true,
-      data: tasks
+      data: tasksWithProjectName
     });
   } catch (error) {
     console.error('Error fetching tasks:', error);
@@ -105,7 +118,8 @@ export async function POST(req: NextRequest) {
     status = 'pending', 
     note = '',
     date = new Date().toISOString().split('T')[0],
-    month = new Date().toISOString().slice(0, 7) // YYYY-MM format
+    month = new Date().toISOString().slice(0, 7), // YYYY-MM format
+    taskNumber
   } = body;
   
   // Validate required fields
@@ -163,7 +177,8 @@ export async function POST(req: NextRequest) {
       date: new Date(date),
       month,
       createdAt: now,
-      updatedAt: now
+      updatedAt: now,
+      taskNumber: taskNumber || ''
     };
 
     const result = await db.collection('tasks').insertOne(task);
