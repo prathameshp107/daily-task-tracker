@@ -63,7 +63,7 @@ export async function PUT(
     return authResponse;
   }
 
-  const { name, description, status, color, startDate, endDate, client } = await req.json();
+  const { name, description, status, color, startDate, endDate, client, integrations } = await req.json();
   
   // Validate status if provided
   if (status) {
@@ -88,6 +88,7 @@ export async function PUT(
     if (startDate !== undefined) updateData.startDate = startDate ? new Date(startDate) : null;
     if (endDate !== undefined) updateData.endDate = endDate ? new Date(endDate) : null;
     if (client !== undefined) updateData.client = client;
+    if (integrations !== undefined) updateData.integrations = integrations;
 
     // Check if project exists and belongs to user
     const existingProject = await db.collection('projects').findOne({

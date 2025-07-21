@@ -50,7 +50,7 @@ export async function POST(req: NextRequest) {
     return authResponse;
   }
 
-  const { name, description, status = 'active', color = '#3b82f6', startDate, endDate, client } = await req.json();
+  const { name, description, status = 'active', color = '#3b82f6', startDate, endDate, client, integrations } = await req.json();
   
   // Validate required fields
   if (!name) {
@@ -98,7 +98,7 @@ export async function POST(req: NextRequest) {
       userId: new ObjectId(authResponse.user._id),
       createdAt: now,
       updatedAt: now,
-      integrations: {}
+      integrations: integrations || {},
     };
 
     const result = await db.collection('projects').insertOne(project);

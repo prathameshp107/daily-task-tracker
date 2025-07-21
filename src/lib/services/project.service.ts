@@ -26,12 +26,12 @@ export const projectService = {
 
   async createProject(data: CreateProjectDto): Promise<Project> {
     const response = await apiClient.post('/projects', data);
-    return response.data;
+    return response.data.data;
   },
 
   async updateProject(projectId: string, updates: UpdateProjectDto): Promise<Project> {
     const response = await apiClient.put(`/projects/${projectId}`, updates);
-    return response.data;
+    return response.data.data;
   },
 
   async deleteProject(projectId: string): Promise<{ success: boolean }> {

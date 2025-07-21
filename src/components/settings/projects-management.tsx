@@ -111,6 +111,19 @@ export function ProjectsManagement({ selectedMonth = 'all' }: ProjectsManagement
     try {
       if (isEditing && currentProject) {
         // Update existing project
+        const integrations: any = {};
+        if (data.jiraUrl || data.jiraProjectKey) {
+          integrations.jira = {
+            url: data.jiraUrl || '',
+            projectKey: data.jiraProjectKey || '',
+          };
+        }
+        if (data.redmineUrl || data.redmineProjectId) {
+          integrations.redmine = {
+            url: data.redmineUrl || '',
+            projectId: data.redmineProjectId || '',
+          };
+        }
         const updatedProject = await projectService.updateProject(currentProject._id, {
           name: data.name,
           description: data.description || '',
@@ -119,6 +132,7 @@ export function ProjectsManagement({ selectedMonth = 'all' }: ProjectsManagement
           endDate: data.endDate || undefined,
           client: data.client || '',
           color: data.color,
+          integrations,
         });
         
       setProjects(projects.map(project => 
@@ -131,6 +145,19 @@ export function ProjectsManagement({ selectedMonth = 'all' }: ProjectsManagement
         });
     } else {
       // Add new project
+        const integrations: any = {};
+        if (data.jiraUrl || data.jiraProjectKey) {
+          integrations.jira = {
+            url: data.jiraUrl || '',
+            projectKey: data.jiraProjectKey || '',
+          };
+        }
+        if (data.redmineUrl || data.redmineProjectId) {
+          integrations.redmine = {
+            url: data.redmineUrl || '',
+            projectId: data.redmineProjectId || '',
+          };
+        }
         const newProject = await projectService.createProject({
           name: data.name,
           description: data.description || '',
@@ -139,6 +166,7 @@ export function ProjectsManagement({ selectedMonth = 'all' }: ProjectsManagement
           endDate: data.endDate || undefined,
           client: data.client || '',
           color: data.color,
+          integrations,
         });
         
       setProjects([...projects, newProject]);

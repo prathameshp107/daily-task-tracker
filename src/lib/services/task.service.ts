@@ -29,6 +29,11 @@ export interface TaskFilters {
   limit?: number;
   sortBy?: string;
   sortOrder?: 'asc' | 'desc';
+  taskNumber?: string; // Optional filter for task number
+  projectName?: string; // Optional filter for project name
+  month?: string; // Optional filter for month
+  date?: string; // Optional filter for date
+  type?: string; // Optional filter for task type
 }
 
 interface PaginatedTasks {
@@ -101,7 +106,7 @@ export const taskService = {
   ): Promise<Task> {
     try {
       const response = await apiClient.put(`/tasks/${taskId}`, updates);
-      return response.data;
+      return response.data.data;
     } catch (error) {
       console.error(`Error updating task ${taskId}:`, error);
       throw error;
