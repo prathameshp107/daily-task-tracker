@@ -184,7 +184,7 @@ const TaskList: React.FC<TaskListProps> = ({
     project: true,
     month: true,
     status: true,
-    note: true,
+    note: false,
     actions: true
   });
 

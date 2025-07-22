@@ -8,6 +8,8 @@ export function ProductivityMetrics({
   totalWorkingDays,
   totalWorkingHours,
   totalLeaves,
+  totalWorkingDaysInMonth,
+  effectiveWorkingDays,
   productivity,
   month,
   year,
@@ -17,25 +19,20 @@ export function ProductivityMetrics({
   totalWorkingDays: number;
   totalWorkingHours: number;
   totalLeaves: number;
+  totalWorkingDaysInMonth: number;
+  effectiveWorkingDays: number;
   productivity: number;
   month: string;
   year: number;
 }) {
-  // Calculate working days in the current month
-  const currentDate = new Date();
-  const daysInMonth = new Date(year, currentDate.getMonth() + 1, 0).getDate();
-  const workingDaysInMonth = Array.from({ length: daysInMonth })
-    .map((_, i) => new Date(year, currentDate.getMonth(), i + 1))
-    .filter(date => date.getDay() !== 0 && date.getDay() !== 6).length;
-
-  // Calculate final day work (working days - leaves)
-  const finalDayWork = (totalWorkingHours / 8) - totalLeaves;
+  // Calculate final day work (working hours converted to days)
+  const finalDayWork = totalWorkingHours / 8;
 
   return (
     <div className="space-y-4">
       <h2 className="text-xl font-semibold">Productivity Overview - {month} {year}</h2>
       
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
         {/* Total Tasks Card */}
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
@@ -45,7 +42,7 @@ export function ProductivityMetrics({
           <CardContent>
             <div className="text-2xl font-bold">{totalTasks}</div>
             <p className="text-xs text-muted-foreground">
-              Total tasks completed this month
+              Total tasks available in the task list
             </p>
           </CardContent>
         </Card>
@@ -73,7 +70,7 @@ export function ProductivityMetrics({
           <CardContent>
             <div className="text-2xl font-bold">{totalWorkingDays}</div>
             <p className="text-xs text-muted-foreground">
-              Total working days (including weekends)
+              Days worked based on hours ({totalWorkingHours}h ÷ 8h/day)
             </p>
           </CardContent>
         </Card>
@@ -106,6 +103,34 @@ export function ProductivityMetrics({
           </CardContent>
         </Card>
 
+        {/* Total Working Days in Month Card */}
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Working Days in Month</CardTitle>
+            <CalendarCheck className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{totalWorkingDaysInMonth} days</div>
+            <p className="text-xs text-muted-foreground">
+              Total working days in {month} (excluding weekends)
+            </p>
+          </CardContent>
+        </Card>
+
+        {/* Effective Working Days Card */}
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Effective Working Days</CardTitle>
+            <Calendar className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{effectiveWorkingDays} days</div>
+            <p className="text-xs text-muted-foreground">
+              Working days minus leaves ({totalWorkingDaysInMonth} - {totalLeaves})
+            </p>
+          </CardContent>
+        </Card>
+
         {/* Productivity Card */}
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
@@ -120,7 +145,7 @@ export function ProductivityMetrics({
               <Progress value={productivity * 100} className="h-2" />
             </div>
             <p className="text-xs text-muted-foreground mt-2">
-              {finalDayWork.toFixed(1)} work days / {workingDaysInMonth} working days
+              {finalDayWork.toFixed(1)} work days / {effectiveWorkingDays} effective days
             </p>
           </CardContent>
         </Card>

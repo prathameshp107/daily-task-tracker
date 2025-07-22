@@ -11,11 +11,28 @@ import { Button } from "@/components/ui/button";
 import { Loader2 } from "lucide-react";
 import { taskService, analyticsService, leaveService } from "@/lib/services";
 import { useToast } from "@/components/ui/use-toast";
-import { Task } from "@/lib/types";
+import { Task as MainTask } from "@/lib/types";
+import { Task as AnalyticsTask } from "@/lib/analytics/types";
+
+// Convert main Task type to analytics Task type
+const convertToAnalyticsTask = (task: MainTask): AnalyticsTask => {
+  return {
+    taskId: task._id || task.id || '',
+    taskType: task.type || '',
+    description: task.description || task.title || '',
+    totalHours: task.estimatedHours || task.totalHours || 0,
+    approvedHours: task.actualHours || task.approvedHours || 0,
+    project: task.project || '',
+    month: task.month || new Date().toLocaleString('default', { month: 'long' }),
+    note: task.note || '',
+    status: (task.status === 'pending' ? 'todo' : task.status === 'completed' ? 'done' : task.status) as 'todo' | 'in-progress' | 'done',
+    completed: task.completed || false,
+  };
+};
 
 export default function AnalyticsPage() {
   const { toast } = useToast();
-  const [tasks, setTasks] = useState<Task[]>([]);
+  const [tasks, setTasks] = useState<AnalyticsTask[]>([]);
   const [leaves, setLeaves] = useState<string[]>([]);
   const [trends, setTrends] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -27,9 +44,10 @@ export default function AnalyticsPage() {
         setLoading(true);
         setError(null);
       
-        // Fetch tasks
+        // Fetch tasks and convert to analytics format
         const tasksData = await taskService.getTasks({});
-        setTasks(tasksData);
+        const analyticsTasksData = tasksData.map(convertToAnalyticsTask);
+        setTasks(analyticsTasksData);
       
         // Fetch leaves
         const leavesData = await leaveService.getLeaves();
@@ -59,7 +77,7 @@ export default function AnalyticsPage() {
 
   const handleExport = async () => {
     try {
-      const metrics = useProductivityMetrics(tasks);
+      const metrics = useProductivityMetrics(tasks, leaves);
       const analyticsData = {
         metrics,
         trends,
@@ -128,7 +146,7 @@ export default function AnalyticsPage() {
       );
     }
 
-    const metrics = useProductivityMetrics(tasks);
+    const metrics = useProductivityMetrics(tasks, leaves);
 
       return (
         <div className="min-h-screen flex flex-col">
@@ -156,6 +174,8 @@ export default function AnalyticsPage() {
                 totalWorkingDays={metrics.totalWorkingDays}
                 totalWorkingHours={metrics.totalWorkingHours}
                 totalLeaves={metrics.totalLeaves}
+                totalWorkingDaysInMonth={metrics.totalWorkingDaysInMonth}
+                effectiveWorkingDays={metrics.effectiveWorkingDays}
                 productivity={metrics.productivity}
                 month={metrics.month}
                 year={metrics.year}
