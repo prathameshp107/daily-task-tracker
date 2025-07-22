@@ -8,7 +8,8 @@ import { ProductivityTrends } from "@/components/analytics/productivity-trends";
 import { useProductivityMetrics } from "@/hooks/useProductivityMetrics";
 import { exportDashboardAndAnalyticsToExcel } from '@/lib/export/excel';
 import { Button } from "@/components/ui/button";
-import { Loader2 } from "lucide-react";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Loader2, Calendar } from "lucide-react";
 import { taskService, analyticsService, leaveService } from "@/lib/services";
 import { useToast } from "@/components/ui/use-toast";
 import { Task as MainTask } from "@/lib/types";
@@ -30,14 +31,93 @@ const convertToAnalyticsTask = (task: MainTask): AnalyticsTask => {
   };
 };
 
+// Generate productivity trends data from tasks
+const generateProductivityTrends = (tasks: AnalyticsTask[], leaves: string[]) => {
+  const currentDate = new Date();
+  const currentYear = currentDate.getFullYear();
+  const months = [
+    'January', 'February', 'March', 'April', 'May', 'June',
+    'July', 'August', 'September', 'October', 'November', 'December'
+  ];
+
+  // Generate data for the last 6 months
+  const trendsData = [];
+  for (let i = 5; i >= 0; i--) {
+    const monthDate = new Date(currentYear, currentDate.getMonth() - i, 1);
+    const monthName = months[monthDate.getMonth()];
+    const monthYear = monthDate.getFullYear();
+    
+    // Filter tasks for this month
+    const monthTasks = tasks.filter(task => 
+      task.month && task.month.toLowerCase() === monthName.toLowerCase()
+    );
+
+    // Calculate working days in this month (excluding weekends)
+    const daysInMonth = new Date(monthYear, monthDate.getMonth() + 1, 0).getDate();
+    const workingDaysInMonth = Array.from({ length: daysInMonth })
+      .map((_, j) => new Date(monthYear, monthDate.getMonth(), j + 1))
+      .filter(date => date.getDay() !== 0 && date.getDay() !== 6).length;
+
+    // Calculate leaves for this month
+    const monthStart = new Date(monthYear, monthDate.getMonth(), 1);
+    const monthEnd = new Date(monthYear, monthDate.getMonth() + 1, 0);
+    
+    const monthLeaves = leaves.filter(leaveDate => {
+      const leave = new Date(leaveDate);
+      return leave >= monthStart && leave <= monthEnd;
+    }).length;
+
+    // Calculate metrics
+    const totalHours = monthTasks.reduce((sum, task) => sum + (task.totalHours || 0), 0);
+    const workDays = totalHours / 8;
+    const effectiveWorkingDays = Math.max(0, workingDaysInMonth - monthLeaves);
+    const productivity = effectiveWorkingDays > 0 
+      ? Math.min(1, Math.max(0, workDays / effectiveWorkingDays)) 
+      : 0;
+
+    trendsData.push({
+      month: monthName.substring(0, 3), // Short month name (Jan, Feb, etc.)
+      productivity: productivity,
+      workingDays: effectiveWorkingDays,
+      workDays: workDays,
+      totalTasks: monthTasks.length,
+      totalHours: totalHours,
+      leaves: monthLeaves
+    });
+  }
+
+  return trendsData;
+};
+
 export default function AnalyticsPage() {
   const { toast } = useToast();
   const [tasks, setTasks] = useState<AnalyticsTask[]>([]);
+  const [allTasks, setAllTasks] = useState<AnalyticsTask[]>([]); // Store all tasks
   const [leaves, setLeaves] = useState<string[]>([]);
   const [trends, setTrends] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [selectedMonth, setSelectedMonth] = useState<string>('current'); // 'current' or specific month
+
+  // Available months for dropdown
+  const availableMonths = [
+    { value: 'current', label: 'Current Month' },
+    { value: 'all', label: 'All Months' },
+    { value: 'January', label: 'January' },
+    { value: 'February', label: 'February' },
+    { value: 'March', label: 'March' },
+    { value: 'April', label: 'April' },
+    { value: 'May', label: 'May' },
+    { value: 'June', label: 'June' },
+    { value: 'July', label: 'July' },
+    { value: 'August', label: 'August' },
+    { value: 'September', label: 'September' },
+    { value: 'October', label: 'October' },
+    { value: 'November', label: 'November' },
+    { value: 'December', label: 'December' },
+  ];
     
+  // Fetch initial data
   useEffect(() => {
     const fetchData = async () => {
       try {
@@ -47,16 +127,17 @@ export default function AnalyticsPage() {
         // Fetch tasks and convert to analytics format
         const tasksData = await taskService.getTasks({});
         const analyticsTasksData = tasksData.map(convertToAnalyticsTask);
-        setTasks(analyticsTasksData);
+        setAllTasks(analyticsTasksData); // Store all tasks
+        setTasks(analyticsTasksData); // Initially show all tasks
       
         // Fetch leaves
         const leavesData = await leaveService.getLeaves();
         const leaveDates = leavesData.map(leave => leave.date);
         setLeaves(leaveDates);
 
-        // Fetch analytics trends
-        const trendsResponse = await analyticsService.getProductivityTrends();
-        setTrends(Array.isArray(trendsResponse.data) ? trendsResponse.data : []);
+        // Generate productivity trends from tasks data
+        const trendsData = generateProductivityTrends(analyticsTasksData, leaveDates);
+        setTrends(trendsData);
 
       } catch (err) {
         console.error('Failed to fetch analytics data:', err);
@@ -74,6 +155,34 @@ export default function AnalyticsPage() {
 
     fetchData();
   }, [toast]);
+
+  // Filter tasks based on selected month
+  useEffect(() => {
+    if (selectedMonth === 'all') {
+      setTasks(allTasks);
+    } else if (selectedMonth === 'current') {
+      const currentMonth = new Date().toLocaleString('default', { month: 'long' });
+      const filteredTasks = allTasks.filter(task => 
+        task.month && task.month.toLowerCase() === currentMonth.toLowerCase()
+      );
+      setTasks(filteredTasks);
+    } else {
+      // Filter by specific month
+      const filteredTasks = allTasks.filter(task => 
+        task.month && task.month.toLowerCase() === selectedMonth.toLowerCase()
+      );
+      setTasks(filteredTasks);
+    }
+
+    // Regenerate trends based on filtered data
+    const trendsData = generateProductivityTrends(allTasks, leaves);
+    setTrends(trendsData);
+  }, [selectedMonth, allTasks, leaves]);
+
+  // Handle month selection change
+  const handleMonthChange = (month: string) => {
+    setSelectedMonth(month);
+  };
 
   const handleExport = async () => {
     try {
@@ -146,7 +255,7 @@ export default function AnalyticsPage() {
       );
     }
 
-    const metrics = useProductivityMetrics(tasks, leaves);
+    const metrics = useProductivityMetrics(tasks, leaves, selectedMonth);
 
       return (
         <div className="min-h-screen flex flex-col">
@@ -154,7 +263,7 @@ export default function AnalyticsPage() {
           
           <main className="flex-1 bg-gray-50 dark:bg-gray-900 p-4 md:p-8">
             <div className="max-w-7xl mx-auto space-y-8">
-            <div className="flex items-center justify-between">
+            <div className="flex flex-col space-y-4 md:space-y-0 md:flex-row md:items-center md:justify-between">
               <div>
                 <h1 className="text-3xl font-bold text-gray-900 dark:text-white">
                   Productivity Analytics
@@ -163,10 +272,30 @@ export default function AnalyticsPage() {
                   Track your productivity metrics and performance
                 </p>
               </div>
-              <Button onClick={handleExport} variant="outline">
-                Export to Excel
-              </Button>
+              
+              <div className="flex items-center gap-4">
+                {/* Month Filter Dropdown */}
+                <div className="flex items-center gap-2">
+                  <Calendar className="h-5 w-5 text-gray-500" />
+                  <Select value={selectedMonth} onValueChange={handleMonthChange}>
+                    <SelectTrigger className="w-48">
+                      <SelectValue placeholder="Select month" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {availableMonths.map((month) => (
+                        <SelectItem key={month.value} value={month.value}>
+                          {month.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                
+                <Button onClick={handleExport} variant="outline">
+                  Export to Excel
+                </Button>
               </div>
+            </div>
               
               <ProductivityMetrics 
                 totalTasks={metrics.totalTasks}

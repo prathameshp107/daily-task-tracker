@@ -15,17 +15,17 @@ export interface ProductivityMetrics {
   year: number;
 }
 
-export function useProductivityMetrics(tasks: Task[], leaves: string[] = []): ProductivityMetrics {
+export function useProductivityMetrics(tasks: Task[], leaves: string[] = [], selectedMonth?: string): ProductivityMetrics {
   return useMemo(() => {
     try {
       const currentDate = new Date();
-      const currentMonth = format(currentDate, 'MMMM');
+      const currentMonth = selectedMonth || format(currentDate, 'MMMM');
       const currentYear = currentDate.getFullYear();
       
-      console.log('useProductivityMetrics - current month:', currentMonth);
+      console.log('useProductivityMetrics - selected month:', currentMonth);
       
-      // Filter tasks for current month (case-insensitive comparison)
-      const currentMonthTasks = tasks.filter(task => 
+      // Use all tasks if 'all' is selected, otherwise filter by month
+      const currentMonthTasks = currentMonth === 'all' ? tasks : tasks.filter(task => 
         task.month && task.month.toString().toLowerCase() === currentMonth.toLowerCase()
       );
       
@@ -105,5 +105,5 @@ export function useProductivityMetrics(tasks: Task[], leaves: string[] = []): Pr
         year: new Date().getFullYear(),
       };
     }
-  }, [tasks, leaves]);
+  }, [tasks, leaves, selectedMonth]);
 }
