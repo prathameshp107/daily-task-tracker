@@ -19,15 +19,24 @@ export function useProductivityMetrics(tasks: Task[], leaves: string[] = [], sel
   return useMemo(() => {
     try {
       const currentDate = new Date();
-      const currentMonth = selectedMonth || format(currentDate, 'MMMM');
       const currentYear = currentDate.getFullYear();
       
-      console.log('useProductivityMetrics - selected month:', currentMonth);
+      // Determine which month to use for calculations
+      let targetMonth: string;
+      let currentMonthTasks: Task[];
       
-      // Use all tasks if 'all' is selected, otherwise filter by month
-      const currentMonthTasks = currentMonth === 'all' ? tasks : tasks.filter(task => 
-        task.month && task.month.toString().toLowerCase() === currentMonth.toLowerCase()
-      );
+      if (!selectedMonth || selectedMonth === 'all') {
+        // If no month selected or 'all' selected, use all tasks
+        targetMonth = 'All Months';
+        currentMonthTasks = tasks;
+      } else {
+        // Use the selected month
+        targetMonth = selectedMonth;
+        currentMonthTasks = tasks; // Tasks are already filtered in the parent component
+      }
+      
+      console.log('useProductivityMetrics - target month:', targetMonth);
+      console.log('useProductivityMetrics - tasks count:', currentMonthTasks.length);
       
       console.log('useProductivityMetrics - current month tasks:', currentMonthTasks);
 
@@ -45,20 +54,42 @@ export function useProductivityMetrics(tasks: Task[], leaves: string[] = [], sel
         (sum, task) => sum + (task.totalHours || 0), 0
       );
       
-      // Calculate total working days in current month (excluding weekends)
-      const daysInMonth = new Date(currentYear, currentDate.getMonth() + 1, 0).getDate();
-      const totalWorkingDaysInMonth = Array.from({ length: daysInMonth })
-        .map((_, i) => new Date(currentYear, currentDate.getMonth(), i + 1))
-        .filter(date => date.getDay() !== 0 && date.getDay() !== 6).length;
+      // Calculate total working days and leaves based on selected month
+      let totalWorkingDaysInMonth: number;
+      let totalLeaves: number;
       
-      // Calculate leaves taken this month
-      const currentMonthStart = new Date(currentYear, currentDate.getMonth(), 1);
-      const currentMonthEnd = new Date(currentYear, currentDate.getMonth() + 1, 0);
-      
-      const totalLeaves = leaves.filter(leaveDate => {
-        const leave = new Date(leaveDate);
-        return leave >= currentMonthStart && leave <= currentMonthEnd;
-      }).length;
+      if (selectedMonth === 'all') {
+        // For 'all months', use current month for working days calculation
+        const daysInMonth = new Date(currentYear, currentDate.getMonth() + 1, 0).getDate();
+        totalWorkingDaysInMonth = Array.from({ length: daysInMonth })
+          .map((_, i) => new Date(currentYear, currentDate.getMonth(), i + 1))
+          .filter(date => date.getDay() !== 0 && date.getDay() !== 6).length;
+        
+        // Calculate leaves for current month
+        const currentMonthStart = new Date(currentYear, currentDate.getMonth(), 1);
+        const currentMonthEnd = new Date(currentYear, currentDate.getMonth() + 1, 0);
+        
+        totalLeaves = leaves.filter(leaveDate => {
+          const leave = new Date(leaveDate);
+          return leave >= currentMonthStart && leave <= currentMonthEnd;
+        }).length;
+      } else {
+        // For specific month, calculate working days for that month
+        const monthIndex = new Date(`${selectedMonth} 1, ${currentYear}`).getMonth();
+        const daysInMonth = new Date(currentYear, monthIndex + 1, 0).getDate();
+        totalWorkingDaysInMonth = Array.from({ length: daysInMonth })
+          .map((_, i) => new Date(currentYear, monthIndex, i + 1))
+          .filter(date => date.getDay() !== 0 && date.getDay() !== 6).length;
+        
+        // Calculate leaves for selected month
+        const monthStart = new Date(currentYear, monthIndex, 1);
+        const monthEnd = new Date(currentYear, monthIndex + 1, 0);
+        
+        totalLeaves = leaves.filter(leaveDate => {
+          const leave = new Date(leaveDate);
+          return leave >= monthStart && leave <= monthEnd;
+        }).length;
+      }
       
       // Working Days - Total working days (including weekends) - calculated from hours
       // This represents the total days worked based on hours (assuming 8 hours per day)
@@ -83,7 +114,7 @@ export function useProductivityMetrics(tasks: Task[], leaves: string[] = [], sel
         totalWorkingDaysInMonth,
         effectiveWorkingDays,
         productivity,
-        month: currentMonth,
+        month: targetMonth,
         year: currentYear,
       };
       

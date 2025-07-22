@@ -5,12 +5,13 @@ import { ProtectedRoute } from "@/components/auth";
 import { Navbar } from "@/components/navbar";
 import { ProductivityMetrics } from "@/components/analytics/productivity-metrics";
 import { ProductivityTrends } from "@/components/analytics/productivity-trends";
+import { AnalyticsSkeleton } from "@/components/analytics/analytics-skeleton";
 import { useProductivityMetrics } from "@/hooks/useProductivityMetrics";
 import { exportDashboardAndAnalyticsToExcel } from '@/lib/export/excel';
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Loader2, Calendar } from "lucide-react";
-import { taskService, analyticsService, leaveService } from "@/lib/services";
+import { Calendar } from "lucide-react";
+import { taskService, leaveService } from "@/lib/services";
 import { useToast } from "@/components/ui/use-toast";
 import { Task as MainTask } from "@/lib/types";
 import { Task as AnalyticsTask } from "@/lib/analytics/types";
@@ -91,17 +92,22 @@ const generateProductivityTrends = (tasks: AnalyticsTask[], leaves: string[]) =>
 
 export default function AnalyticsPage() {
   const { toast } = useToast();
+  
+  // Get current month automatically
+  const getCurrentMonth = () => {
+    return new Date().toLocaleString('default', { month: 'long' });
+  };
+  
   const [tasks, setTasks] = useState<AnalyticsTask[]>([]);
   const [allTasks, setAllTasks] = useState<AnalyticsTask[]>([]); // Store all tasks
   const [leaves, setLeaves] = useState<string[]>([]);
   const [trends, setTrends] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [selectedMonth, setSelectedMonth] = useState<string>('current'); // 'current' or specific month
+  const [selectedMonth, setSelectedMonth] = useState<string>(getCurrentMonth()); // Auto-select current month
 
   // Available months for dropdown
   const availableMonths = [
-    { value: 'current', label: 'Current Month' },
     { value: 'all', label: 'All Months' },
     { value: 'January', label: 'January' },
     { value: 'February', label: 'February' },
@@ -160,12 +166,6 @@ export default function AnalyticsPage() {
   useEffect(() => {
     if (selectedMonth === 'all') {
       setTasks(allTasks);
-    } else if (selectedMonth === 'current') {
-      const currentMonth = new Date().toLocaleString('default', { month: 'long' });
-      const filteredTasks = allTasks.filter(task => 
-        task.month && task.month.toLowerCase() === currentMonth.toLowerCase()
-      );
-      setTasks(filteredTasks);
     } else {
       // Filter by specific month
       const filteredTasks = allTasks.filter(task => 
@@ -174,7 +174,7 @@ export default function AnalyticsPage() {
       setTasks(filteredTasks);
     }
 
-    // Regenerate trends based on filtered data
+    // Regenerate trends based on filtered data (always use all tasks for trends)
     const trendsData = generateProductivityTrends(allTasks, leaves);
     setTrends(trendsData);
   }, [selectedMonth, allTasks, leaves]);
@@ -207,6 +207,8 @@ export default function AnalyticsPage() {
     }
   };
 
+  // AnalyticsSkeleton is already imported at the top of the file
+
   const AnalyticsContent = () => {
     if (loading) {
       return (
@@ -214,14 +216,7 @@ export default function AnalyticsPage() {
           <Navbar />
           <main className="flex-1 bg-gray-50 dark:bg-gray-900 p-4 md:p-8">
             <div className="max-w-7xl mx-auto">
-              <div className="flex items-center justify-center h-64">
-                <div className="flex items-center space-x-2">
-                  <Loader2 className="h-8 w-8 animate-spin text-blue-600" />
-                  <span className="text-lg text-gray-600 dark:text-gray-400">
-                    Loading analytics data...
-                  </span>
-                </div>
-              </div>
+              <AnalyticsSkeleton />
             </div>
           </main>
         </div>
