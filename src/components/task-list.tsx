@@ -399,18 +399,37 @@ const TaskList: React.FC<TaskListProps> = ({
             <TableCell>
               {(() => {
                 const projectObj = projects.find(p => p._id === taskProps.projectId);
+                const taskNumber = taskProps.taskNumber;
+                
+                // Check for Jira integration first
                 const jiraUrl = projectObj?.integrations?.jira?.url;
                 const jiraKey = projectObj?.integrations?.jira?.projectKey;
-                const taskNumber = taskProps.taskNumber;
                 if (jiraUrl && jiraKey && taskNumber) {
                   const jiraLink = `${jiraUrl.replace(/\/$/, '')}/${jiraKey}-${taskNumber}`;
                   return (
-                    <a href={jiraLink} target="_blank" rel="noopener noreferrer" className="text-blue-600 underline">{taskNumber}</a>
+                    <a href={jiraLink} target="_blank" rel="noopener noreferrer" className="text-blue-600 underline" title="Open in Jira">
+                      {taskNumber}
+                    </a>
                   );
                 }
+                
+                // Check for Redmine integration
+                let redmineUrl = projectObj?.integrations?.redmine?.url;
+                if (redmineUrl && taskNumber) {
+                  redmineUrl = 'https://rm.virtuaresearch.com'
+                  const redmineLink = `${redmineUrl.replace(/\/$/, '')}/issues/${taskNumber}`;
+                  return (
+                    <a href={redmineLink} target="_blank" rel="noopener noreferrer" className="text-red-600 underline" title="Open in Redmine">
+                      {taskNumber}
+                    </a>
+                  );
+                }
+                
                 // Fallback: default link
                 return (
-                  <a href={`/tasks/${id}`} target="_blank" rel="noopener noreferrer" className="text-blue-600 underline">{taskNumber}</a>
+                  <a href={`/tasks/${id}`} target="_blank" rel="noopener noreferrer" className="text-gray-600 underline" title="View task details">
+                    {taskNumber}
+                  </a>
                 );
               })()}
             </TableCell>
