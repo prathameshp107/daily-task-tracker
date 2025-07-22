@@ -347,8 +347,26 @@ export function DashboardContent() {
                           month: taskData.month,
                           date: new Date().toISOString().split('T')[0],
                           completed: currentTask.completed,
+                          taskNumber: currentTask.taskNumber,
                         });
-                        setTasks(tasks.map(t => t._id === currentTask._id ? updatedTask : t));
+                        
+                        // Ensure the updated task has all necessary fields for UI display
+                        const enhancedUpdatedTask = {
+                          ...updatedTask,
+                          project: projectName, // Ensure project name is set
+                          projectName: projectName, // Ensure projectName is set
+                          title: taskData.description,
+                          description: taskData.description,
+                          type: taskData.taskType,
+                        };
+                        
+                        setTasks(prevTasks => prevTasks.map(t => t._id === currentTask._id ? enhancedUpdatedTask : t));
+                        
+                        // Also update filtered tasks if the current task is in the filtered view
+                        setFilteredTasks(prevFilteredTasks => 
+                          prevFilteredTasks.map(t => t._id === currentTask._id ? enhancedUpdatedTask : t)
+                        );
+                        
                         setIsModalOpen(false);
                         setCurrentTask(undefined);
                         toast({

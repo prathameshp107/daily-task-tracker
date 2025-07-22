@@ -16,11 +16,9 @@ import { toast } from '@/components/ui/use-toast';
 import { leaveService } from '@/lib/services';
 
 const leaveTypes = [
-  { id: 'annual', label: 'Annual Leave', color: 'bg-blue-500' },
+  { id: 'vacation', label: 'Vacation Leave', color: 'bg-blue-500' },
   { id: 'sick', label: 'Sick Leave', color: 'bg-red-500' },
   { id: 'personal', label: 'Personal Leave', color: 'bg-green-500' },
-  { id: 'maternity', label: 'Maternity Leave', color: 'bg-pink-500' },
-  { id: 'paternity', label: 'Paternity Leave', color: 'bg-purple-500' },
   { id: 'other', label: 'Other', color: 'bg-gray-500' },
 ];
 
@@ -44,6 +42,7 @@ export function LeaveManagement() {
   const [isEditing, setIsEditing] = useState(false);
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [currentLeave, setCurrentLeave] = useState<LeaveEntry | null>(null);
 
@@ -83,6 +82,7 @@ export function LeaveManagement() {
 
   const onSubmit = async (data: LeaveFormValues) => {
     try {
+      setSubmitting(true); // Set submitting state during form submission
       if (isEditing && currentLeave) {
         // Update existing leave
         const updatedLeave = await leaveService.updateLeave(currentLeave._id, {
@@ -91,7 +91,7 @@ export function LeaveManagement() {
           notes: data.notes || '',
         });
         
-        setLeaves(leaves.map(leave => 
+        setLeaves(prevLeaves => prevLeaves.map(leave => 
           leave._id === currentLeave._id ? updatedLeave : leave
         ));
         
@@ -103,11 +103,11 @@ export function LeaveManagement() {
         // Add new leave
         const newLeave = await leaveService.createLeave({
           date: data.date,
-          type: data.type,
+          type: data.type as any,
           notes: data.notes || '',
         });
 
-        setLeaves([...leaves, newLeave]);
+        setLeaves(prevLeaves => [...prevLeaves, newLeave]);
         toast({
           title: 'Success',
           description: 'Leave added successfully.',
@@ -115,7 +115,11 @@ export function LeaveManagement() {
       }
       
       // Reset form and close it
-    form.reset();
+      form.reset({
+        date: new Date().toISOString().split('T')[0],
+        type: '',
+        notes: '',
+      });
       setIsFormOpen(false);
       setIsEditing(false);
       setCurrentLeave(null);
@@ -126,6 +130,8 @@ export function LeaveManagement() {
         title: 'Error',
         description: 'Failed to save leave. Please try again.',
       });
+    } finally {
+      setSubmitting(false); // Reset submitting state
     }
   };
 
@@ -210,7 +216,16 @@ export function LeaveManagement() {
     <div className="space-y-6">
       <h2 className="text-2xl font-bold">Leave Management</h2>
 
-      <Button onClick={() => setIsFormOpen(true)} className="w-full">
+      <Button onClick={() => {
+        setIsFormOpen(true);
+        setIsEditing(false);
+        setCurrentLeave(null);
+        form.reset({
+          date: new Date().toISOString().split('T')[0],
+          type: '',
+          notes: '',
+        });
+      }} className="w-full">
         <Plus className="mr-2 h-4 w-4" />
         Add New Leave
       </Button>
@@ -234,18 +249,25 @@ export function LeaveManagement() {
       </div>
         <div>
                 <Label htmlFor="type" className="text-sm font-medium">Leave Type</Label>
-                <Select onValueChange={form.setValue} defaultValue={form.watch('type')}>
+                <Select 
+                  onValueChange={(value) => {
+                    form.setValue('type', value);
+                    form.clearErrors('type'); // Clear any existing errors
+                  }} 
+                  value={form.watch('type')}
+                  name="type"
+                >
                   <SelectTrigger className="mt-1">
                     <SelectValue placeholder="Select a leave type" />
-                        </SelectTrigger>
-                      <SelectContent>
-                        {leaveTypes.map((type) => (
-                          <SelectItem key={type.id} value={type.id}>
+                  </SelectTrigger>
+                  <SelectContent>
+                    {leaveTypes.map((type) => (
+                      <SelectItem key={type.id} value={type.id}>
                         {type.label}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
                 {form.formState.errors.type && (
                   <p className="text-red-500 text-xs mt-1">{form.formState.errors.type.message}</p>
                 )}
@@ -261,8 +283,8 @@ export function LeaveManagement() {
               />
             </div>
 
-              <Button type="submit" className="w-full">
-              {loading ? (
+              <Button type="submit" className="w-full" disabled={submitting}>
+              {submitting ? (
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />
               ) : (
                 <Plus className="mr-2 h-4 w-4" />

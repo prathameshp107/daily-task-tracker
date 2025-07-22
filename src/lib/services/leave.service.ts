@@ -31,11 +31,11 @@ export const leaveService = {
   async getLeaves(filters: LeaveFilters = {}): Promise<any[]> {
     try {
       const params = new URLSearchParams();
-      
+
       if (filters.startDate) params.append('startDate', filters.startDate);
       if (filters.endDate) params.append('endDate', filters.endDate);
       if (filters.type) params.append('type', filters.type);
-      
+
       const response = await apiClient.get(`/leaves?${params.toString()}`);
       // Return only the array, not the whole response object
       return response.data.data || [];
@@ -50,9 +50,23 @@ export const leaveService = {
    */
   async createLeave(leaveData: CreateLeaveDto): Promise<LeaveEntry> {
     try {
-      return await apiClient.post<LeaveEntry>('/leaves', leaveData);
+      const response = await apiClient.post<LeaveEntry>('/leaves', leaveData);
+      return response.data.data || [];
     } catch (error) {
       console.error('Failed to create leave entry:', error);
+      throw error;
+    }
+  },
+
+  /**
+   * Update a leave entry
+   */
+  async updateLeave(leaveId: string, leaveData: CreateLeaveDto): Promise<LeaveEntry> {
+    try {
+      const response = await apiClient.put<LeaveEntry>(`/leaves/${leaveId}`, leaveData);
+      return response.data || [];
+    } catch (error) {
+      console.error(`Failed to update leave entry ${leaveId}:`, error);
       throw error;
     }
   },
@@ -140,12 +154,12 @@ export const workingDaysService = {
       const config = await this.getConfig();
       const dayOfWeek = date.getDay(); // 0 = Sunday, 1 = Monday, ..., 6 = Saturday
       const dateStr = date.toISOString().split('T')[0];
-      
+
       // Check if it's a holiday
       if (config.holidays.includes(dateStr)) {
         return false;
       }
-      
+
       // Check if it's a working day based on the configuration
       switch (dayOfWeek) {
         case 0: return config.sunday;
@@ -170,7 +184,7 @@ export const workingDaysService = {
   async getNextWorkingDay(fromDate: Date = new Date()): Promise<Date> {
     const date = new Date(fromDate);
     date.setDate(date.getDate() + 1); // Start from the next day
-    
+
     // Try up to 365 days in the future to avoid infinite loops
     for (let i = 0; i < 365; i++) {
       if (await this.isWorkingDay(date)) {
@@ -178,7 +192,7 @@ export const workingDaysService = {
       }
       date.setDate(date.getDate() + 1);
     }
-    
+
     // If no working day found (unlikely), return the original date + 1 day
     return date;
   },
@@ -189,7 +203,7 @@ export const workingDaysService = {
   async getPreviousWorkingDay(fromDate: Date = new Date()): Promise<Date> {
     const date = new Date(fromDate);
     date.setDate(date.getDate() - 1); // Start from the previous day
-    
+
     // Try up to 365 days in the past to avoid infinite loops
     for (let i = 0; i < 365; i++) {
       if (await this.isWorkingDay(date)) {
@@ -197,7 +211,7 @@ export const workingDaysService = {
       }
       date.setDate(date.getDate() - 1);
     }
-    
+
     // If no working day found (unlikely), return the original date - 1 day
     return date;
   },

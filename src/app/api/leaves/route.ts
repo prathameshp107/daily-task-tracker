@@ -47,7 +47,7 @@ export async function GET(req: NextRequest) {
       ...leave,
       _id: leave._id.toString(),
       userId: leave.userId.toString(),
-      date: leave.date.toISOString().split('T')[0]
+      date: leave.date instanceof Date ? leave.date.toISOString().split('T')[0] : leave.date
     }));
 
     return NextResponse.json({
@@ -130,7 +130,9 @@ export async function POST(req: NextRequest) {
           ...leave,
           _id: result.insertedId.toString(),
           userId: leave.userId.toString(),
-          date: leave.date.toISOString().split('T')[0]
+          date: leave.date instanceof Date ? leave.date.toISOString().split('T')[0] : leave.date,
+          createdAt: leave.createdAt.toISOString(),
+          updatedAt: leave.updatedAt.toISOString()
         },
         message: 'Leave entry created successfully'
       },

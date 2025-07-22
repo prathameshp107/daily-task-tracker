@@ -10,7 +10,7 @@ export interface CreateProjectDto {
   client?: string;
 }
 
-export interface UpdateProjectDto extends Partial<CreateProjectDto> {}
+export interface UpdateProjectDto extends Partial<CreateProjectDto> { }
 
 export const projectService = {
   async getProjects(): Promise<Project[]> {
