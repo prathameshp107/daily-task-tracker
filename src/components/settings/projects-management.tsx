@@ -200,10 +200,10 @@ export function ProjectsManagement({ selectedMonth = 'all' }: ProjectsManagement
       endDate: project.endDate || '',
       client: project.client || '',
       color: project.color,
-      jiraUrl: '',
-      jiraProjectKey: '',
-      redmineUrl: '',
-      redmineProjectId: '',
+      jiraUrl: project.integrations?.jira?.url || '',
+      jiraProjectKey: project.integrations?.jira?.projectKey || '',
+      redmineUrl: project.integrations?.redmine?.url || '',
+      redmineProjectId: project.integrations?.redmine?.projectId || '',
     });
     setCurrentProject(project);
     setIsEditing(true);

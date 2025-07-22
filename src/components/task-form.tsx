@@ -74,15 +74,38 @@ export function TaskForm({ task, onSubmit, onCancel }: TaskFormProps) {
   // Update form data when task prop changes (for edit mode)
   useEffect(() => {
     if (task) {
+      // Handle different task object structures for project ID
+      let projectId = '';
+      if ('projectId' in task && task.projectId) {
+        projectId = task.projectId;
+      } else if ('project' in task) {
+        // If project is an object with _id
+        if (typeof task.project === 'object' && task.project && '_id' in task.project) {
+          projectId = task.project._id;
+        } else if (typeof task.project === 'string') {
+          // If project is a string, try to find matching project by name
+          const matchingProject = projects.find(p => p.name === task.project);
+          projectId = matchingProject?._id || '';
+        }
+      }
+
+      // Handle notes - check multiple possible sources
+      let note = '';
+      if ('note' in task && task.note) {
+        note = task.note;
+      } else if ('description' in task && task.description) {
+        note = task.description;
+      }
+
       setFormData({
-        taskId: task._id || '', // Use _id for taskId
-        taskType: task.type || '', // Use type for taskType
-        description: task.description || '',
+        taskId: task._id || task.id || '', // Use _id or id for taskId
+        taskType: task.type || task.taskType || '', // Use type or taskType
+        description: task.description || task.title || '',
         totalHours: task.estimatedHours || task.totalHours || 0,
         approvedHours: task.actualHours || task.approvedHours || 0,
-        projectId: task.projectId || task.project || '',
+        projectId: projectId,
         month: task.month || new Date().toLocaleString('default', { month: 'long' }),
-        note: task.note || '',
+        note: note,
         status: (task.status === 'pending' ? 'todo' : task.status === 'completed' ? 'done' : task.status) as 'todo' | 'in-progress' | 'done',
         taskNumber: task.taskNumber || '',
       });
@@ -105,7 +128,7 @@ export function TaskForm({ task, onSubmit, onCancel }: TaskFormProps) {
       setTotalHoursInput('');
       setApprovedHoursInput('');
     }
-  }, [task]);
+  }, [task, projects]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();

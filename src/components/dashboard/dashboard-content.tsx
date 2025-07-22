@@ -8,6 +8,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { TaskForm } from '@/components/task-form';
 import TaskList from '@/components/task-list';
 import { Navbar } from '@/components/navbar';
+import { DashboardSkeleton } from '@/components/dashboard/dashboard-skeleton';
 import { Plus, X, FolderOpen, Loader2 } from 'lucide-react';
 import { format } from 'date-fns';
 import { taskService, projectService } from '@/lib/services';
@@ -79,15 +80,15 @@ export function DashboardContent() {
     const fetchData = async () => {
       try {
         setLoading(true);
-        
+
         // Fetch tasks
         const tasksData = await taskService.getTasks({});
         setTasks(tasksData);
-        
+
         // Fetch projects
         const projectsData = await projectService.getProjects();
         setProjects(projectsData);
-        
+
       } catch (err: unknown) {
         console.error('Failed to fetch data:', err);
         const errorMessage = err instanceof Error ? err.message : 'Failed to load data';
@@ -97,7 +98,7 @@ export function DashboardContent() {
           title: 'Error',
           description: errorMessage,
         });
-        
+
         // Redirect to login if unauthorized
         if ((err as any)?.response?.status === 401) {
           router.push('/login');
@@ -144,8 +145,8 @@ export function DashboardContent() {
           taskData.status === 'todo'
             ? 'pending'
             : taskData.status === 'done'
-            ? 'completed'
-            : taskData.status,
+              ? 'completed'
+              : taskData.status,
         totalHours: taskData.totalHours,
         approvedHours: taskData.approvedHours,
         note: taskData.note,
@@ -175,13 +176,13 @@ export function DashboardContent() {
     try {
       const task = tasks.find(t => t._id === taskId);
       if (!task) return;
-      
+
       const updatedTask = await taskService.updateTask(taskId, {
         ...task,
         completed: !task.completed,
         status: !task.completed ? 'completed' : 'pending',
       });
-      
+
       setTasks(tasks.map(t => t._id === taskId ? updatedTask : t));
     } catch (err: unknown) {
       console.error('Failed to update task:', err);
@@ -243,6 +244,11 @@ export function DashboardContent() {
     }
   };
 
+  // Show skeleton while loading
+  if (loading) {
+    return <DashboardSkeleton />;
+  }
+
   return (
     <div className="min-h-screen flex flex-col">
       <Navbar />
@@ -271,8 +277,8 @@ export function DashboardContent() {
                   {projects.map((project) => (
                     <SelectItem key={project._id} value={project._id}>
                       <div className="flex items-center gap-2">
-                        <div 
-                          className="h-3 w-3 rounded-full" 
+                        <div
+                          className="h-3 w-3 rounded-full"
                           style={{ backgroundColor: project.color }}
                         />
                         {project.name}
@@ -333,8 +339,8 @@ export function DashboardContent() {
                             taskData.status === 'todo'
                               ? 'pending'
                               : taskData.status === 'done'
-                              ? 'completed'
-                              : taskData.status,
+                                ? 'completed'
+                                : taskData.status,
                           totalHours: taskData.totalHours,
                           approvedHours: taskData.approvedHours,
                           note: taskData.note,
@@ -373,12 +379,7 @@ export function DashboardContent() {
         </div>
 
         <div className="flex-1 overflow-hidden rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 shadow-sm" style={{ minHeight: 'unset' }}>
-          {loading ? (
-            <div className="flex items-center justify-center p-8">
-              <Loader2 className="h-8 w-8 animate-spin text-gray-500" />
-              <span className="ml-2">Loading tasks...</span>
-            </div>
-          ) : error ? (
+          {error ? (
             <div className="p-4 text-red-600 dark:text-red-400">{error}</div>
           ) : (
             <div className="overflow-x-auto w-full">
@@ -403,14 +404,14 @@ export function DashboardContent() {
                   <Plus className="h-8 w-8 text-white" />
                 </div>
               </div>
-              
+
               {/* Enhanced Text Content */}
               <div className="space-y-3 max-w-md">
                 <h3 className="text-2xl font-bold text-gray-900 dark:text-gray-100">
                   {selectedProject === 'all' ? 'No tasks yet' : `No tasks for ${selectedProject}`}
                 </h3>
                 <p className="text-gray-600 dark:text-gray-400 text-base leading-relaxed">
-                  {selectedProject === 'all' 
+                  {selectedProject === 'all'
                     ? 'Ready to boost your productivity? Create your first task to get started with TaskFlow.'
                     : `No tasks found for ${selectedProject}. Create a new task or try selecting a different project.`
                   }
@@ -454,7 +455,7 @@ export function DashboardContent() {
               <div className="flex items-center justify-center gap-2 text-gray-600 dark:text-gray-400">
                 <div className="h-2 w-2 rounded-full bg-green-500 animate-pulse"></div>
                 <p className="text-base font-medium">
-                  {filteredTasks.length} {filteredTasks.length === 1 ? 'task' : 'tasks'} 
+                  {filteredTasks.length} {filteredTasks.length === 1 ? 'task' : 'tasks'}
                   {selectedProject !== 'all' ? ` for ${selectedProject}` : ''} in total
                 </p>
               </div>
