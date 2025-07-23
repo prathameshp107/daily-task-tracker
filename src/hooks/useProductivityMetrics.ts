@@ -100,9 +100,10 @@ export function useProductivityMetrics(tasks: Task[], leaves: string[] = [], sel
       
       // Productivity - calculated based on actual work done vs effective working days available
       // Formula: (Work days from hours / Effective working days) * 100
+      // No longer capping at 100% to allow showing productivity > 100%
       const workDaysFromHours = totalWorkingHours / 8;
       const productivity = effectiveWorkingDays > 0 
-        ? Math.min(1, Math.max(0, workDaysFromHours / effectiveWorkingDays)) 
+        ? Math.max(0, workDaysFromHours / effectiveWorkingDays) 
         : 0;
 
       const result = {

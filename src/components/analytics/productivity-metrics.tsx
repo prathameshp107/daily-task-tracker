@@ -142,7 +142,7 @@ export function ProductivityMetrics({
               {Math.round(productivity * 100)}%
             </div>
             <div className="mt-2">
-              <Progress value={productivity * 100} className="h-2" />
+              <Progress value={Math.min(100, productivity * 100)} className="h-2" />
             </div>
             <p className="text-xs text-muted-foreground mt-2">
               {finalDayWork.toFixed(1)} work days / {effectiveWorkingDays} effective days
