@@ -11,7 +11,8 @@ import { Navbar } from '@/components/navbar';
 import { DashboardSkeleton } from '@/components/dashboard/dashboard-skeleton';
 import { Plus, X, FolderOpen, Loader2 } from 'lucide-react';
 import { format } from 'date-fns';
-import { taskService, projectService } from '@/lib/services';
+import { taskService, projectService, leaveService } from '@/lib/services';
+import { useProductivityMetrics } from '@/hooks/useProductivityMetrics';
 import { useToast } from '@/components/ui/use-toast';
 import { Task, Project, toLegacyTask, fromLegacyTask, LegacyTask } from '@/lib/types';
 
@@ -75,6 +76,25 @@ export function DashboardContent() {
   const [filteredTasks, setFilteredTasks] = useState<Task[]>([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [currentTask, setCurrentTask] = useState<Task | undefined>(undefined);
+  const [leaves, setLeaves] = useState<string[]>([]);
+
+  // Convert tasks to analytics format for productivity metrics
+  const analyticsTasksData = tasks.map(task => ({
+    taskId: task._id || task.id || '',
+    taskNumber: task.taskNumber || '',
+    taskType: task.type || '',
+    description: task.description || task.title || '',
+    totalHours: task.estimatedHours || task.totalHours || 0,
+    approvedHours: task.actualHours || task.approvedHours || 0,
+    project: task.project || '',
+    month: task.month || new Date().toLocaleString('default', { month: 'long' }),
+    note: task.note || '',
+    status: (task.status === 'pending' ? 'todo' : task.status === 'completed' ? 'done' : task.status) as 'todo' | 'in-progress' | 'done',
+    completed: task.completed || false,
+  }));
+
+  // Calculate productivity metrics at component level
+  const productivityMetrics = useProductivityMetrics(analyticsTasksData, leaves);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -88,6 +108,10 @@ export function DashboardContent() {
         // Fetch projects
         const projectsData = await projectService.getProjects();
         setProjects(projectsData);
+
+        // Fetch leaves
+        const leavesData = await leaveService.getLeaves();
+        setLeaves(leavesData.map(leave => leave.date));
 
       } catch (err: unknown) {
         console.error('Failed to fetch data:', err);
@@ -223,17 +247,42 @@ export function DashboardContent() {
 
   const handleExport = async () => {
     try {
-      // For now, we'll just export the tasks
-      // In a real app, you would fetch analytics data here
-      const blob = new Blob([JSON.stringify(tasks, null, 2)], { type: 'application/json' });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = `tasks-${new Date().toISOString().split('T')[0]}.json`;
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      URL.revokeObjectURL(url);
+      // Import the utility function to calculate metrics without using hooks
+      const { calculateProductivityMetrics } = await import('@/lib/utils/productivity-metrics');
+      
+      // Get current month name to match the analytics page behavior
+      const currentMonth = new Date().toLocaleString('default', { month: 'long' });
+      
+      // Calculate metrics using the utility function with the current month
+      const exportMetrics = calculateProductivityMetrics(analyticsTasksData, leaves, currentMonth);
+      
+      // Use the calculated metrics for export
+      const analyticsData = {
+        metrics: {
+          totalTasks: exportMetrics.totalTasks,
+          totalWorkingHours: exportMetrics.totalWorkingHours,
+          totalApprovedHours: exportMetrics.totalApprovedHours,
+          totalWorkingDaysInMonth: exportMetrics.totalWorkingDaysInMonth,
+          totalLeaves: exportMetrics.totalLeaves,
+          effectiveWorkingDays: exportMetrics.effectiveWorkingDays,
+          productivity: exportMetrics.productivity,
+          month: exportMetrics.month,
+          year: exportMetrics.year,
+        },
+        trends: [],
+        leaves: leaves,
+      };
+
+      // Import the export function dynamically
+      const { exportDashboardAndAnalyticsToExcel } = await import('@/lib/export/excel');
+      
+      // Export with projects data for integration links
+      await exportDashboardAndAnalyticsToExcel(analyticsTasksData, analyticsData, projects);
+      
+      toast({
+        title: 'Export Successful',
+        description: 'Tasks have been exported to Excel with integration links.',
+      });
     } catch (err: unknown) {
       console.error('Export failed:', err);
       toast({

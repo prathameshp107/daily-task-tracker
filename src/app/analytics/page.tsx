@@ -11,7 +11,7 @@ import { exportDashboardAndAnalyticsToExcel } from '@/lib/export/excel';
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Calendar } from "lucide-react";
-import { taskService, leaveService } from "@/lib/services";
+import { taskService, leaveService, projectService } from "@/lib/services";
 import { useToast } from "@/components/ui/use-toast";
 import { Task as MainTask } from "@/lib/types";
 import { Task as AnalyticsTask } from "@/lib/analytics/types";
@@ -186,16 +186,22 @@ export default function AnalyticsPage() {
 
   const handleExport = async () => {
     try {
-      const metrics = useProductivityMetrics(tasks, leaves);
+      const metrics = useProductivityMetrics(tasks, leaves, selectedMonth);
       const analyticsData = {
         metrics,
         trends,
         leaves,
       };
-      await exportDashboardAndAnalyticsToExcel(tasks, analyticsData);
+      
+      // Get projects data for integration links
+      const projects = await projectService.getProjects();
+      
+      // Export with projects data for integration links
+      await exportDashboardAndAnalyticsToExcel(tasks, analyticsData, projects);
+      
       toast({
         title: 'Export Successful',
-        description: 'Analytics data has been exported to Excel.',
+        description: 'Analytics data has been exported to Excel with integration links.',
       });
     } catch (err) {
       console.error('Export failed:', err);

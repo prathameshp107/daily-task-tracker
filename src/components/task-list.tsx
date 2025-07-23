@@ -95,29 +95,29 @@ const getTaskProperties = (task: Task | LegacyTask) => {
       taskNumber: (task as any).taskNumber || '' // Add taskNumber for LegacyTask
     };
   }
-  
+
   // For Task type, handle both direct properties and nested properties
-  const projectName = 'project' in task && typeof task.project === 'string' 
-    ? task.project 
-    : 'projectName' in task 
-      ? (task as Task & { projectName?: string }).projectName 
+  const projectName = 'project' in task && typeof task.project === 'string'
+    ? task.project
+    : 'projectName' in task
+      ? (task as Task & { projectName?: string }).projectName
       : (task as Task & { project?: { name?: string } }).project?.name || '';
-      
-  const projectId = 'projectId' in task 
-    ? task.projectId 
+
+  const projectId = 'projectId' in task
+    ? task.projectId
     : (task as Task & { project?: { _id?: string } }).project?._id || '';
-  
+
   const dueDate = 'dueDate' in task && task.dueDate ? new Date(task.dueDate) : new Date();
-  const month = 'month' in task && task.month ? task.month : 
-               dueDate.toLocaleString('default', { month: 'long' });
-  
-  const taskType = 'type' in task ? task.type : 
-                  'taskType' in task ? (task as Task & { taskType?: string }).taskType : 
-                  (task as Task & { labels?: string[] }).labels?.[0] || 'Task';
+  const month = 'month' in task && task.month ? task.month :
+    dueDate.toLocaleString('default', { month: 'long' });
+
+  const taskType = 'type' in task ? task.type :
+    'taskType' in task ? (task as Task & { taskType?: string }).taskType :
+      (task as Task & { labels?: string[] }).labels?.[0] || 'Task';
   const totalHours = task.estimatedHours || (task as Task & { totalHours?: number }).totalHours || 0;
   const approvedHours = task.actualHours || (task as Task & { approvedHours?: number }).approvedHours || 0;
   const taskId = (task as Task & { _id?: string; id?: string })._id || (task as Task & { _id?: string; id?: string }).id || '';
-  
+
   // Create a new object with all the properties we need
   return {
     id: taskId,
@@ -167,11 +167,11 @@ const TaskList: React.FC<TaskListProps> = ({
 
   // Track active filters to show in the UI
   const [activeFilters, setActiveFilters] = useState<Partial<Filters>>({});
-  
+
   // Track filter dropdown state
   const [isFilterOpen, setIsFilterOpen] = useState(false);
   const [hoveredFilter, setHoveredFilter] = useState<string | null>(null);
-  
+
   // Track column visibility
   const [isColumnMenuOpen, setIsColumnMenuOpen] = useState(false);
   const [visibleColumns, setVisibleColumns] = useState<VisibleColumns>({
@@ -191,26 +191,26 @@ const TaskList: React.FC<TaskListProps> = ({
   // Refs
   const filterRef = useRef<HTMLDivElement>(null);
   const columnMenuRef = useRef<HTMLDivElement>(null);
-  
+
   // Memoized filtered tasks
   const filteredTasks = useMemo(() => {
     if (!tasks) return [];
-    
+
     return tasks.filter((task) => {
       const props = getTaskProperties(task);
-      
+
       // Apply search filter
       if (filters.search && !props.description.toLowerCase().includes(filters.search.toLowerCase())) {
         return false;
       }
-      
+
       // Apply other filters
       for (const [key, value] of Object.entries(filters)) {
         if (key !== 'search' && value && props[key as keyof typeof props] !== value) {
           return false;
         }
       }
-      
+
       return true;
     });
   }, [tasks, filters]);
@@ -244,9 +244,9 @@ const TaskList: React.FC<TaskListProps> = ({
       ...filters,
       [key]: value,
     };
-    
+
     setFilters(newFilters);
-    
+
     // Update active filters (only include non-empty filters)
     const newActiveFilters = Object.entries(newFilters).reduce((acc, [k, v]) => {
       if (v && k !== 'search') { // Don't include empty filters or search in active filters
@@ -254,9 +254,9 @@ const TaskList: React.FC<TaskListProps> = ({
       }
       return acc;
     }, {} as Partial<Filters>);
-    
+
     setActiveFilters(newActiveFilters);
-    
+
     // Notify parent component if needed
     if (onFilterChange) {
       onFilterChange(JSON.stringify(newActiveFilters));
@@ -392,7 +392,7 @@ const TaskList: React.FC<TaskListProps> = ({
         note
       } = taskProps;
 
-    return (
+      return (
         <TableRow key={id}>
           {visibleColumns.taskNumber && <TableCell className="font-medium">{taskProps.taskNumber}</TableCell>}
           {visibleColumns.taskLink && (
@@ -400,7 +400,7 @@ const TaskList: React.FC<TaskListProps> = ({
               {(() => {
                 const projectObj = projects.find(p => p._id === taskProps.projectId);
                 const taskNumber = taskProps.taskNumber;
-                
+
                 // Check for Jira integration first
                 const jiraUrl = projectObj?.integrations?.jira?.url;
                 const jiraKey = projectObj?.integrations?.jira?.projectKey;
@@ -412,7 +412,7 @@ const TaskList: React.FC<TaskListProps> = ({
                     </a>
                   );
                 }
-                
+
                 // Check for Redmine integration
                 let redmineUrl = projectObj?.integrations?.redmine?.url;
                 if (redmineUrl && taskNumber) {
@@ -424,7 +424,7 @@ const TaskList: React.FC<TaskListProps> = ({
                     </a>
                   );
                 }
-                
+
                 // Fallback: default link
                 return (
                   <a href={`/tasks/${id}`} target="_blank" rel="noopener noreferrer" className="text-gray-600 underline" title="View task details">
@@ -441,45 +441,45 @@ const TaskList: React.FC<TaskListProps> = ({
           {visibleColumns.project && <TableCell>{project}</TableCell>}
           {visibleColumns.month && <TableCell>{month}</TableCell>}
           {visibleColumns.status && (
-        <TableCell>
+            <TableCell>
               <span className={`px-2 py-1 text-xs rounded-full ${status === 'todo' ? 'bg-yellow-100 text-yellow-800' :
-                  status === 'in-progress' ? 'bg-blue-100 text-blue-800' :
-                    'bg-green-100 text-green-800'
+                status === 'in-progress' ? 'bg-blue-100 text-blue-800' :
+                  'bg-green-100 text-green-800'
                 }`}>
                 {status.replace('-', ' ')}
               </span>
-        </TableCell>
+            </TableCell>
           )}
           {visibleColumns.note && <TableCell className="max-w-xs truncate">{note || '-'}</TableCell>}
           {visibleColumns.actions && (
-        <TableCell>
-          <div className="flex items-center space-x-2">
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={() => onEditTask(task)}
-              className="h-8 w-8 p-0 text-blue-500 hover:text-blue-700"
-              title="Edit task"
-              type="button"
-            >
-              <Pencil className="h-4 w-4" />
-              <span className="sr-only">Edit</span>
-            </Button>
-            <Button
-              variant="ghost"
-              size="icon"
+            <TableCell>
+              <div className="flex items-center space-x-2">
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={() => onEditTask(task)}
+                  className="h-8 w-8 p-0 text-blue-500 hover:text-blue-700"
+                  title="Edit task"
+                  type="button"
+                >
+                  <Pencil className="h-4 w-4" />
+                  <span className="sr-only">Edit</span>
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="icon"
                   onClick={() => onDeleteTask(id)}
-              className="h-8 w-8 p-0 text-red-500 hover:text-red-700"
-              title="Delete task"
-              type="button"
-            >
-              <Trash2 className="h-4 w-4" />
-              <span className="sr-only">Delete</span>
-            </Button>
-          </div>
-        </TableCell>
+                  className="h-8 w-8 p-0 text-red-500 hover:text-red-700"
+                  title="Delete task"
+                  type="button"
+                >
+                  <Trash2 className="h-4 w-4" />
+                  <span className="sr-only">Delete</span>
+                </Button>
+              </div>
+            </TableCell>
           )}
-      </TableRow>
+        </TableRow>
       );
     });
   }, [filteredTasks, visibleColumns, onEditTask, onDeleteTask, loading, error, projects]);
@@ -538,65 +538,65 @@ const TaskList: React.FC<TaskListProps> = ({
   }
 
   return (
-      <div className="w-full h-full p-4 space-y-4">
-        <div className="flex flex-col space-y-4">
-          <div className="flex flex-col space-y-3 md:space-y-0 md:flex-row md:items-center md:justify-between">
-            <h2 className="text-xl font-semibold">Task List</h2>
+    <div className="w-full h-full p-4 space-y-4">
+      <div className="flex flex-col space-y-4">
+        <div className="flex flex-col space-y-3 md:space-y-0 md:flex-row md:items-center md:justify-between">
+          <h2 className="text-xl font-semibold">Task List</h2>
 
-            <div className="flex items-center space-x-3">
-              <div className="relative z-10" ref={filterRef} style={{ minWidth: 'fit-content' }}>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setIsFilterOpen(!isFilterOpen)}
-                  className="flex items-center gap-2"
-                >
-                  <FilterIcon className="h-4 w-4" />
-                  <span>Filters</span>
-                  {Object.keys(activeFilters).length > 0 && (
-                    <span className="ml-1 bg-primary text-primary-foreground rounded-full w-5 h-5 flex items-center justify-center text-xs">
-                      {Object.keys(activeFilters).length}
-                    </span>
-                  )}
-                </Button>
-                {isFilterOpen && (
-                  <div className="absolute left-0 top-full mt-1 w-56 bg-white rounded-lg shadow-xl border border-gray-200 z-50" style={{ minWidth: '14rem' }}>
-                    <div className="p-1.5 space-y-0.5">
-                      {filterOptions.map((filter) => (
-                        <div
-                          key={filter.id}
-                          className="relative"
-                          onMouseEnter={() => setHoveredFilter(filter.id)}
-                          onMouseLeave={() => setHoveredFilter(null)}
+          <div className="flex items-center space-x-3">
+            <div className="relative z-10" ref={filterRef} style={{ minWidth: 'fit-content' }}>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setIsFilterOpen(!isFilterOpen)}
+                className="flex items-center gap-2"
+              >
+                <FilterIcon className="h-4 w-4" />
+                <span>Filters</span>
+                {Object.keys(activeFilters).length > 0 && (
+                  <span className="ml-1 bg-primary text-primary-foreground rounded-full w-5 h-5 flex items-center justify-center text-xs">
+                    {Object.keys(activeFilters).length}
+                  </span>
+                )}
+              </Button>
+              {isFilterOpen && (
+                <div className="absolute left-0 top-full mt-1 w-56 bg-white rounded-lg shadow-xl border border-gray-200 z-50" style={{ minWidth: '14rem' }}>
+                  <div className="p-1.5 space-y-0.5">
+                    {filterOptions.map((filter) => (
+                      <div
+                        key={filter.id}
+                        className="relative"
+                        onMouseEnter={() => setHoveredFilter(filter.id)}
+                        onMouseLeave={() => setHoveredFilter(null)}
+                      >
+                        <button
+                          className={cn(
+                            "w-full flex items-center justify-between px-4 py-2.5 text-sm text-left rounded-md transition-colors",
+                            "hover:bg-gray-50 focus:outline-none focus:ring-1 focus:ring-primary focus:ring-opacity-50",
+                            hoveredFilter === filter.id ? "bg-gray-50" : ""
+                          )}
                         >
-                          <button
-                            className={cn(
-                              "w-full flex items-center justify-between px-4 py-2.5 text-sm text-left rounded-md transition-colors",
-                              "hover:bg-gray-50 focus:outline-none focus:ring-1 focus:ring-primary focus:ring-opacity-50",
-                              hoveredFilter === filter.id ? "bg-gray-50" : ""
-                            )}
-                          >
-                            <div className="flex items-center">
-                              <span className="inline-flex items-center justify-center w-5 h-5 mr-2 text-xs font-medium text-gray-500">
-                                {filter.icon}
-                              </span>
-                              <span className="font-medium text-gray-800">{filter.label}</span>
-                            </div>
-                            <ChevronRight className="h-4 w-4 text-gray-400" />
-                          </button>
+                          <div className="flex items-center">
+                            <span className="inline-flex items-center justify-center w-5 h-5 mr-2 text-xs font-medium text-gray-500">
+                              {filter.icon}
+                            </span>
+                            <span className="font-medium text-gray-800">{filter.label}</span>
+                          </div>
+                          <ChevronRight className="h-4 w-4 text-gray-400" />
+                        </button>
 
-                          {/* Submenu */}
-                          {hoveredFilter === filter.id && (
-                            <div
-                              className="absolute left-full top-0 ml-1 bg-white rounded-lg shadow-xl border border-gray-200 z-[60] overflow-y-auto max-h-[400px] w-56 grid grid-cols-1 gap-2 p-2"
-                              style={{
-                                // Ensure it stays within viewport
-                                maxWidth: 'calc(100vw - 2rem)'
-                              }}
-                            >
-                              <div className="py-1.5">
-                                <button
-                                  onClick={() => handleFilterChange(filter.id, 'All')}
+                        {/* Submenu */}
+                        {hoveredFilter === filter.id && (
+                          <div
+                            className="absolute left-full top-0 ml-1 bg-white rounded-lg shadow-xl border border-gray-200 z-[60] overflow-y-auto max-h-[400px] w-56 grid grid-cols-1 gap-2 p-2"
+                            style={{
+                              // Ensure it stays within viewport
+                              maxWidth: 'calc(100vw - 2rem)'
+                            }}
+                          >
+                            <div className="py-1.5">
+                              <button
+                                onClick={() => handleFilterChange(filter.id, 'All')}
                                 className="w-full text-left px-3 py-2 text-sm hover:bg-gray-50 rounded-md"
                               >
                                 All {filter.label}s
@@ -612,14 +612,14 @@ const TaskList: React.FC<TaskListProps> = ({
                                 </button>
                               </div>
                             ))}
-                            </div>
-                          )}
-                        </div>
-                      ))}
-                    </div>
+                          </div>
+                        )}
+                      </div>
+                    ))}
                   </div>
-                )}
-              </div>
+                </div>
+              )}
+            </div>
 
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
@@ -649,7 +649,7 @@ const TaskList: React.FC<TaskListProps> = ({
                 ))}
               </DropdownMenuContent>
             </DropdownMenu>
-            </div>
+          </div>
 
           <div className="flex items-center space-x-2">
             <div className="relative">
@@ -704,13 +704,13 @@ const TaskList: React.FC<TaskListProps> = ({
 
       <div className="rounded-md border">
         <Table>
-            {renderTableHeader()}
-            <TableBody>
+          {renderTableHeader()}
+          <TableBody>
             {renderTaskRows()}
-            </TableBody>
-          </Table>
-        </div>
+          </TableBody>
+        </Table>
       </div>
+    </div>
   );
 };
 
