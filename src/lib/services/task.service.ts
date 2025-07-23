@@ -36,7 +36,7 @@ export interface TaskFilters {
   type?: string; // Optional filter for task type
 }
 
-interface PaginatedTasks {
+export interface PaginatedTasks {
   data: Task[];
   total: number;
   page: number;
@@ -67,6 +67,58 @@ export const taskService = {
       return response.data.data || [];
     } catch (error) {
       console.error('Error fetching tasks:', error);
+      throw error;
+    }
+  },
+
+  /**
+   * Get tasks with pagination support
+   */
+  async getTasksPaginated(filters: TaskFilters = {}): Promise<PaginatedTasks> {
+    try {
+      const params = new URLSearchParams();
+      
+      // Set default pagination values
+      const page = filters.page || 1;
+      const limit = filters.limit || 10;
+      
+      // Add filters to query params
+      Object.entries({ ...filters, page, limit }).forEach(([key, value]) => {
+        if (value !== undefined && value !== null && value !== '') {
+          params.append(key, String(value));
+        }
+      });
+
+      const response = await apiClient.get(`/tasks?${params.toString()}`);
+      
+      // If the API returns paginated data, use it
+      if (response.data.total !== undefined) {
+        return {
+          data: response.data.data || [],
+          total: response.data.total || 0,
+          page: response.data.page || page,
+          limit: response.data.limit || limit,
+          totalPages: response.data.totalPages || Math.ceil((response.data.total || 0) / limit)
+        };
+      }
+      
+      // Fallback: simulate pagination on client side
+      const allTasks = response.data.data || [];
+      const total = allTasks.length;
+      const totalPages = Math.ceil(total / limit);
+      const startIndex = (page - 1) * limit;
+      const endIndex = startIndex + limit;
+      const paginatedData = allTasks.slice(startIndex, endIndex);
+      
+      return {
+        data: paginatedData,
+        total,
+        page,
+        limit,
+        totalPages
+      };
+    } catch (error) {
+      console.error('Error fetching paginated tasks:', error);
       throw error;
     }
   },

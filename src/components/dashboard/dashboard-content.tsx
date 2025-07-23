@@ -73,6 +73,7 @@ export function DashboardContent() {
   const [error, setError] = useState<string | null>(null);
   const [projects, setProjects] = useState<Project[]>([]);
   const [selectedProject, setSelectedProject] = useState<string>('all');
+  const [selectedMonth, setSelectedMonth] = useState<string>('all');
   const [filteredTasks, setFilteredTasks] = useState<Task[]>([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [currentTask, setCurrentTask] = useState<Task | undefined>(undefined);
@@ -135,25 +136,63 @@ export function DashboardContent() {
     fetchData();
   }, [toast, router]);
 
-  // Filter tasks when project selection changes
+  // Filter tasks when project or month selection changes
   useEffect(() => {
-    if (selectedProject === 'all') {
-      setFilteredTasks(tasks);
-    } else {
-      const filtered = tasks.filter(task => task.projectId === selectedProject);
-      setFilteredTasks(filtered);
-    }
-  }, [tasks, selectedProject]);
+    let filtered = tasks;
 
-  // Filter tasks based on selected project
-  useEffect(() => {
-    if (selectedProject === 'all') {
-      setFilteredTasks(tasks)
-    } else {
-      const filtered = tasks.filter(task => task.projectId === selectedProject)
-      setFilteredTasks(filtered)
+    // Filter by project
+    if (selectedProject !== 'all') {
+      filtered = filtered.filter(task => task.projectId === selectedProject);
     }
-  }, [tasks, selectedProject])
+
+    // Filter by month
+    if (selectedMonth !== 'all') {
+      filtered = filtered.filter(task => {
+        // Get month from task using the same logic as in task-list component
+        const getMonthFromTask = (task: Task) => {
+          // First, check if task has a month field
+          if (task.month) {
+            return task.month;
+          }
+          
+          // Check for date field (common in MongoDB tasks)
+          if ('date' in task && (task as any).date) {
+            const dateValue = (task as any).date;
+            // Handle MongoDB date format { $date: "..." } or direct date string
+            const dateString = typeof dateValue === 'object' && dateValue.$date ? dateValue.$date : dateValue;
+            const taskDate = new Date(dateString);
+            if (!isNaN(taskDate.getTime())) {
+              return taskDate.toLocaleString('default', { month: 'long' });
+            }
+          }
+          
+          // Check for createdAt field
+          if (task.createdAt) {
+            const createdDate = new Date(task.createdAt);
+            if (!isNaN(createdDate.getTime())) {
+              return createdDate.toLocaleString('default', { month: 'long' });
+            }
+          }
+          
+          // Check for dueDate field
+          if (task.dueDate) {
+            const dueDate = new Date(task.dueDate);
+            if (!isNaN(dueDate.getTime())) {
+              return dueDate.toLocaleString('default', { month: 'long' });
+            }
+          }
+          
+          // Fallback to current month
+          return new Date().toLocaleString('default', { month: 'long' });
+        };
+
+        const taskMonth = getMonthFromTask(task);
+        return taskMonth === selectedMonth;
+      });
+    }
+
+    setFilteredTasks(filtered);
+  }, [tasks, selectedProject, selectedMonth]);
 
   const addTask = async (taskData: TaskFormData) => {
     try {
@@ -315,6 +354,22 @@ export function DashboardContent() {
             </p>
           </div>
           <div className="flex gap-2 items-center">
+            <div className="flex items-center gap-2">
+              <Select value={selectedMonth} onValueChange={setSelectedMonth}>
+                <SelectTrigger className="w-40">
+                  <SelectValue placeholder="Select month" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Months</SelectItem>
+                  {['January', 'February', 'March', 'April', 'May', 'June', 
+                    'July', 'August', 'September', 'October', 'November', 'December'].map((month) => (
+                    <SelectItem key={month} value={month}>
+                      {month}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
             <div className="flex items-center gap-2">
               <FolderOpen className="h-5 w-5 text-gray-500" />
               <Select value={selectedProject} onValueChange={setSelectedProject}>

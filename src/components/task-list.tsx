@@ -9,6 +9,7 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Check, CheckCircle2, ChevronDown, ChevronRight, Circle, Columns, Filter as FilterIcon, Loader2, Pencil, Plus, Search, Trash2, X, XCircle } from "lucide-react";
+import TaskPagination from "@/components/task-pagination";
 
 import { cn } from "@/lib/utils";
 import { Task, TaskStatus, isLegacyTask } from "@/lib/types";
@@ -107,9 +108,48 @@ const getTaskProperties = (task: Task | LegacyTask) => {
     ? task.projectId
     : (task as Task & { project?: { _id?: string } }).project?._id || '';
 
+  // Enhanced month calculation to handle different date sources
+  const getMonthFromTask = () => {
+    // First, check if task has a month field
+    if ('month' in task && task.month) {
+      return task.month;
+    }
+    
+    // Check for date field (common in MongoDB tasks)
+    if ('date' in task && (task as any).date) {
+      const dateValue = (task as any).date;
+      // Handle MongoDB date format { $date: "..." } or direct date string
+      const dateString = typeof dateValue === 'object' && dateValue.$date ? dateValue.$date : dateValue;
+      const taskDate = new Date(dateString);
+      if (!isNaN(taskDate.getTime())) {
+        return taskDate.toLocaleString('default', { month: 'long' });
+      }
+    }
+    
+    // Check for createdAt field
+    if ('createdAt' in task && task.createdAt) {
+      const createdDate = new Date(task.createdAt);
+      if (!isNaN(createdDate.getTime())) {
+        return createdDate.toLocaleString('default', { month: 'long' });
+      }
+    }
+    
+    // Check for dueDate field
+    if ('dueDate' in task && task.dueDate) {
+      const dueDate = new Date(task.dueDate);
+      if (!isNaN(dueDate.getTime())) {
+        return dueDate.toLocaleString('default', { month: 'long' });
+      }
+    }
+    
+    // Fallback to current month
+    return new Date().toLocaleString('default', { month: 'long' });
+  };
+
+  const month = getMonthFromTask();
+
+  // Calculate dueDate for the return object
   const dueDate = 'dueDate' in task && task.dueDate ? new Date(task.dueDate) : new Date();
-  const month = 'month' in task && task.month ? task.month :
-    dueDate.toLocaleString('default', { month: 'long' });
 
   const taskType = 'type' in task ? task.type :
     'taskType' in task ? (task as Task & { taskType?: string }).taskType :
@@ -188,6 +228,10 @@ const TaskList: React.FC<TaskListProps> = ({
     actions: true
   });
 
+  // Pagination state
+  const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage, setItemsPerPage] = useState(10);
+
   // Refs
   const filterRef = useRef<HTMLDivElement>(null);
   const columnMenuRef = useRef<HTMLDivElement>(null);
@@ -214,6 +258,31 @@ const TaskList: React.FC<TaskListProps> = ({
       return true;
     });
   }, [tasks, filters]);
+
+  // Memoized paginated tasks
+  const paginatedTasks = useMemo(() => {
+    const startIndex = (currentPage - 1) * itemsPerPage;
+    const endIndex = startIndex + itemsPerPage;
+    return filteredTasks.slice(startIndex, endIndex);
+  }, [filteredTasks, currentPage, itemsPerPage]);
+
+  // Calculate pagination info
+  const totalPages = Math.ceil(filteredTasks.length / itemsPerPage);
+
+  // Reset to first page when filters change
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [filters]);
+
+  // Pagination handlers
+  const handlePageChange = (page: number) => {
+    setCurrentPage(page);
+  };
+
+  const handleItemsPerPageChange = (newItemsPerPage: number) => {
+    setItemsPerPage(newItemsPerPage);
+    setCurrentPage(1); // Reset to first page when changing items per page
+  };
 
   // Get unique values for filter dropdowns
   const { taskTypes, projects: allProjects, months, statuses } = useMemo(() => {
@@ -310,12 +379,6 @@ const TaskList: React.FC<TaskListProps> = ({
       icon: <span className="w-4 h-4 mr-2">P</span>
     },
     {
-      id: 'month',
-      label: 'Month',
-      options: months,
-      icon: <span className="w-4 h-4 mr-2">M</span>
-    },
-    {
       id: 'status',
       label: 'Status',
       options: statuses,
@@ -366,7 +429,7 @@ const TaskList: React.FC<TaskListProps> = ({
       );
     }
 
-    if (filteredTasks.length === 0) {
+    if (paginatedTasks.length === 0) {
       return (
         <TableRow>
           <TableCell colSpan={Object.values(visibleColumns).filter(Boolean).length} className="text-center py-8 text-muted-foreground">
@@ -376,7 +439,7 @@ const TaskList: React.FC<TaskListProps> = ({
       );
     }
 
-    return filteredTasks.map((task) => {
+    return paginatedTasks.map((task) => {
       const taskProps = getTaskProperties(task);
       const {
         id,
@@ -482,7 +545,7 @@ const TaskList: React.FC<TaskListProps> = ({
         </TableRow>
       );
     });
-  }, [filteredTasks, visibleColumns, onEditTask, onDeleteTask, loading, error, projects]);
+  }, [paginatedTasks, visibleColumns, onEditTask, onDeleteTask, loading, error, projects]);
 
   // Close dropdowns when clicking outside
   useEffect(() => {
@@ -560,7 +623,7 @@ const TaskList: React.FC<TaskListProps> = ({
                 )}
               </Button>
               {isFilterOpen && (
-                <div className="absolute left-0 top-full mt-1 w-56 bg-white rounded-lg shadow-xl border border-gray-200 z-50" style={{ minWidth: '14rem' }}>
+                <div className="absolute left-0 top-full mt-1 w-56 bg-white dark:bg-gray-800 rounded-lg shadow-xl border border-gray-200 dark:border-gray-700 z-50" style={{ minWidth: '14rem' }}>
                   <div className="p-1.5 space-y-0.5">
                     {filterOptions.map((filter) => (
                       <div
@@ -572,23 +635,23 @@ const TaskList: React.FC<TaskListProps> = ({
                         <button
                           className={cn(
                             "w-full flex items-center justify-between px-4 py-2.5 text-sm text-left rounded-md transition-colors",
-                            "hover:bg-gray-50 focus:outline-none focus:ring-1 focus:ring-primary focus:ring-opacity-50",
-                            hoveredFilter === filter.id ? "bg-gray-50" : ""
+                            "hover:bg-gray-50 dark:hover:bg-gray-700 focus:outline-none focus:ring-1 focus:ring-primary focus:ring-opacity-50",
+                            hoveredFilter === filter.id ? "bg-gray-50 dark:bg-gray-700" : ""
                           )}
                         >
                           <div className="flex items-center">
-                            <span className="inline-flex items-center justify-center w-5 h-5 mr-2 text-xs font-medium text-gray-500">
+                            <span className="inline-flex items-center justify-center w-5 h-5 mr-2 text-xs font-medium text-gray-500 dark:text-gray-400">
                               {filter.icon}
                             </span>
-                            <span className="font-medium text-gray-800">{filter.label}</span>
+                            <span className="font-medium text-gray-800 dark:text-gray-200">{filter.label}</span>
                           </div>
-                          <ChevronRight className="h-4 w-4 text-gray-400" />
+                          <ChevronRight className="h-4 w-4 text-gray-400 dark:text-gray-500" />
                         </button>
 
                         {/* Submenu */}
                         {hoveredFilter === filter.id && (
                           <div
-                            className="absolute left-full top-0 ml-1 bg-white rounded-lg shadow-xl border border-gray-200 z-[60] overflow-y-auto max-h-[400px] w-56 grid grid-cols-1 gap-2 p-2"
+                            className="absolute left-full top-0 ml-1 bg-white dark:bg-gray-800 rounded-lg shadow-xl border border-gray-200 dark:border-gray-700 z-[60] overflow-y-auto max-h-[400px] w-56 grid grid-cols-1 gap-2 p-2"
                             style={{
                               // Ensure it stays within viewport
                               maxWidth: 'calc(100vw - 2rem)'
@@ -597,7 +660,7 @@ const TaskList: React.FC<TaskListProps> = ({
                             <div className="py-1.5">
                               <button
                                 onClick={() => handleFilterChange(filter.id, 'All')}
-                                className="w-full text-left px-3 py-2 text-sm hover:bg-gray-50 rounded-md"
+                                className="w-full text-left px-3 py-2 text-sm hover:bg-gray-50 dark:hover:bg-gray-700 rounded-md text-gray-700 dark:text-gray-300 transition-colors"
                               >
                                 All {filter.label}s
                               </button>
@@ -606,7 +669,7 @@ const TaskList: React.FC<TaskListProps> = ({
                               <div key={option} className="py-1.5">
                                 <button
                                   onClick={() => handleFilterChange(filter.id, option)}
-                                  className="w-full text-left px-3 py-2 text-sm hover:bg-gray-50 rounded-md"
+                                  className="w-full text-left px-3 py-2 text-sm hover:bg-gray-50 dark:hover:bg-gray-700 rounded-md text-gray-700 dark:text-gray-300 transition-colors"
                                 >
                                   {option}
                                 </button>
@@ -710,6 +773,18 @@ const TaskList: React.FC<TaskListProps> = ({
           </TableBody>
         </Table>
       </div>
+
+      {/* Pagination */}
+      {filteredTasks.length > 0 && (
+        <TaskPagination
+          currentPage={currentPage}
+          totalPages={totalPages}
+          totalItems={filteredTasks.length}
+          itemsPerPage={itemsPerPage}
+          onPageChange={handlePageChange}
+          onItemsPerPageChange={handleItemsPerPageChange}
+        />
+      )}
     </div>
   );
 };

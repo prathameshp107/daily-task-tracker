@@ -183,7 +183,7 @@ export function TaskForm({ task, onSubmit, onCancel }: TaskFormProps) {
   ];
 
   const taskTypes = [
-    'Development', 'Testing', 'Deployment', 'Design', 'Documentation', 'Meeting'
+    'Development', 'Testing', 'Deployment', 'Design', 'Documentation', 'Meeting', 'Miscellaneous', 'Live RCA'
   ];
 
   return (
