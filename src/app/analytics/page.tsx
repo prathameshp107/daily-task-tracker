@@ -16,6 +16,32 @@ import { useToast } from "@/components/ui/use-toast";
 import { Task as MainTask } from "@/lib/types";
 import { Task as AnalyticsTask } from "@/lib/analytics/types";
 
+// Quarter utility functions
+const getQuarterFromMonth = (monthName: string): string => {
+  const monthMap: { [key: string]: number } = {
+    'January': 1, 'February': 2, 'March': 3, 'April': 4, 'May': 5, 'June': 6,
+    'July': 7, 'August': 8, 'September': 9, 'October': 10, 'November': 11, 'December': 12
+  };
+  
+  const monthNumber = monthMap[monthName];
+  if (!monthNumber) return 'Q1';
+  
+  if (monthNumber >= 4 && monthNumber <= 6) return 'Q1'; // April-June
+  if (monthNumber >= 7 && monthNumber <= 9) return 'Q2'; // July-September  
+  if (monthNumber >= 10 && monthNumber <= 12) return 'Q3'; // October-December
+  return 'Q4'; // January-March
+};
+
+const getMonthsInQuarter = (quarter: string): string[] => {
+  switch (quarter) {
+    case 'Q1': return ['April', 'May', 'June'];
+    case 'Q2': return ['July', 'August', 'September'];
+    case 'Q3': return ['October', 'November', 'December'];
+    case 'Q4': return ['January', 'February', 'March'];
+    default: return [];
+  }
+};
+
 // Convert main Task type to analytics Task type
 const convertToAnalyticsTask = (task: MainTask): AnalyticsTask => {
   return {
@@ -105,6 +131,7 @@ export default function AnalyticsPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [selectedMonth, setSelectedMonth] = useState<string>(getCurrentMonth()); // Auto-select current month
+  const [selectedQuarter, setSelectedQuarter] = useState<string>('all');
 
   // Available months for dropdown
   const availableMonths = [
@@ -162,31 +189,54 @@ export default function AnalyticsPage() {
     fetchData();
   }, [toast]);
 
-  // Filter tasks based on selected month
+  // Filter tasks based on selected month or quarter
   useEffect(() => {
-    if (selectedMonth === 'all') {
-      setTasks(allTasks);
-    } else {
-      // Filter by specific month
-      const filteredTasks = allTasks.filter(task => 
+    let filteredTasks = allTasks;
+
+    // Filter by quarter (takes precedence over month filter)
+    if (selectedQuarter !== 'all') {
+      const quarterMonths = getMonthsInQuarter(selectedQuarter);
+      filteredTasks = allTasks.filter(task => 
+        task.month && quarterMonths.includes(task.month)
+      );
+    } else if (selectedMonth !== 'all') {
+      // Filter by specific month only if no quarter is selected
+      filteredTasks = allTasks.filter(task => 
         task.month && task.month.toLowerCase() === selectedMonth.toLowerCase()
       );
-      setTasks(filteredTasks);
     }
+
+    setTasks(filteredTasks);
 
     // Regenerate trends based on filtered data (always use all tasks for trends)
     const trendsData = generateProductivityTrends(allTasks, leaves);
     setTrends(trendsData);
-  }, [selectedMonth, allTasks, leaves]);
+  }, [selectedMonth, selectedQuarter, allTasks, leaves]);
 
   // Handle month selection change
   const handleMonthChange = (month: string) => {
     setSelectedMonth(month);
+    // Reset quarter filter when month is selected
+    if (month !== 'all') {
+      setSelectedQuarter('all');
+    }
+  };
+
+  // Handle quarter selection change
+  const handleQuarterChange = (quarter: string) => {
+    setSelectedQuarter(quarter);
+    // Reset month filter when quarter is selected
+    if (quarter !== 'all') {
+      setSelectedMonth('all');
+    }
   };
 
   const handleExport = async () => {
     try {
-      const metrics = useProductivityMetrics(tasks, leaves, selectedMonth);
+      // Calculate metrics based on selected filter for export
+      const metrics = selectedQuarter !== 'all' 
+        ? useProductivityMetrics(tasks, leaves, selectedQuarter, true)
+        : useProductivityMetrics(tasks, leaves, selectedMonth, false);
       const analyticsData = {
         metrics,
         trends,
@@ -256,7 +306,10 @@ export default function AnalyticsPage() {
       );
     }
 
-    const metrics = useProductivityMetrics(tasks, leaves, selectedMonth);
+    // Calculate metrics based on selected filter
+    const metrics = selectedQuarter !== 'all' 
+      ? useProductivityMetrics(tasks, leaves, selectedQuarter, true)
+      : useProductivityMetrics(tasks, leaves, selectedMonth, false);
 
       return (
         <div className="min-h-screen flex flex-col">
@@ -275,10 +328,30 @@ export default function AnalyticsPage() {
               </div>
               
               <div className="flex items-center gap-4">
-                {/* Month Filter Dropdown */}
+                {/* Quarter Filter Dropdown */}
                 <div className="flex items-center gap-2">
                   <Calendar className="h-5 w-5 text-gray-500" />
-                  <Select value={selectedMonth} onValueChange={handleMonthChange}>
+                  <Select value={selectedQuarter} onValueChange={handleQuarterChange}>
+                    <SelectTrigger className="w-40">
+                      <SelectValue placeholder="Quarter" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All Quarters</SelectItem>
+                      <SelectItem value="Q1">Q1 (Apr-Jun)</SelectItem>
+                      <SelectItem value="Q2">Q2 (Jul-Sep)</SelectItem>
+                      <SelectItem value="Q3">Q3 (Oct-Dec)</SelectItem>
+                      <SelectItem value="Q4">Q4 (Jan-Mar)</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                {/* Month Filter Dropdown */}
+                <div className="flex items-center gap-2">
+                  <Select 
+                    value={selectedMonth} 
+                    onValueChange={handleMonthChange}
+                    disabled={selectedQuarter !== 'all'}
+                  >
                     <SelectTrigger className="w-48">
                       <SelectValue placeholder="Select month" />
                     </SelectTrigger>
@@ -309,6 +382,7 @@ export default function AnalyticsPage() {
                 productivity={metrics.productivity}
                 month={metrics.month}
                 year={metrics.year}
+                isQuarterView={selectedQuarter !== 'all'}
               />
               
             <ProductivityTrends data={trends} />

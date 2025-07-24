@@ -13,6 +13,7 @@ export function ProductivityMetrics({
   productivity,
   month,
   year,
+  isQuarterView = false,
 }: {
   totalTasks: number;
   totalApprovedHours: number;
@@ -24,9 +25,14 @@ export function ProductivityMetrics({
   productivity: number;
   month: string;
   year: number;
+  isQuarterView?: boolean;
 }) {
   // Calculate final day work (working hours converted to days)
   const finalDayWork = totalWorkingHours / 8;
+
+  // Dynamic labels based on view type
+  const periodLabel = isQuarterView ? 'quarter' : 'month';
+  const periodCapitalized = isQuarterView ? 'Quarter' : 'Month';
 
   return (
     <div className="space-y-4">
@@ -84,7 +90,7 @@ export function ProductivityMetrics({
           <CardContent>
             <div className="text-2xl font-bold">{totalWorkingHours}h</div>
             <p className="text-xs text-muted-foreground">
-              Total hours worked this month
+              Total hours worked this {periodLabel}
             </p>
           </CardContent>
         </Card>
@@ -98,15 +104,15 @@ export function ProductivityMetrics({
           <CardContent>
             <div className="text-2xl font-bold">{totalLeaves} days</div>
             <p className="text-xs text-muted-foreground">
-              Total leaves taken this month
+              Total leaves taken this {periodLabel}
             </p>
           </CardContent>
         </Card>
 
-        {/* Total Working Days in Month Card */}
+        {/* Total Working Days in Period Card */}
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Working Days in Month</CardTitle>
+            <CardTitle className="text-sm font-medium">Working Days in {periodCapitalized}</CardTitle>
             <CalendarCheck className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>

@@ -467,8 +467,12 @@ const TaskList: React.FC<TaskListProps> = ({
                 // Check for Jira integration first
                 const jiraUrl = projectObj?.integrations?.jira?.url;
                 const jiraKey = projectObj?.integrations?.jira?.projectKey;
+                // Check if taskNumber already contains the jiraKey prefix
+                const hasJiraKeyInTaskNumber = jiraKey && taskNumber && taskNumber.startsWith(`${jiraKey}-`);
                 if (jiraUrl && jiraKey && taskNumber) {
-                  const jiraLink = `${jiraUrl.replace(/\/$/, '')}/${jiraKey}-${taskNumber}`;
+                    const jiraLink = hasJiraKeyInTaskNumber
+                    ? `${jiraUrl.replace(/\/$/, '')}/${taskNumber}`
+                    : `${jiraUrl.replace(/\/$/, '')}/${jiraKey}-${taskNumber}`;
                   return (
                     <a href={jiraLink} target="_blank" rel="noopener noreferrer" className="text-blue-600 underline" title="Open in Jira">
                       {taskNumber}

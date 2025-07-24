@@ -65,6 +65,32 @@ export function isTask(task: unknown): task is Task {
   return typeof task === 'object' && task !== null && '_id' in task && 'title' in task && 'projectId' in task;
 }
 
+// Quarter utility functions
+const getQuarterFromMonth = (monthName: string): string => {
+  const monthMap: { [key: string]: number } = {
+    'January': 1, 'February': 2, 'March': 3, 'April': 4, 'May': 5, 'June': 6,
+    'July': 7, 'August': 8, 'September': 9, 'October': 10, 'November': 11, 'December': 12
+  };
+  
+  const monthNumber = monthMap[monthName];
+  if (!monthNumber) return 'Q1';
+  
+  if (monthNumber >= 4 && monthNumber <= 6) return 'Q1'; // April-June
+  if (monthNumber >= 7 && monthNumber <= 9) return 'Q2'; // July-September  
+  if (monthNumber >= 10 && monthNumber <= 12) return 'Q3'; // October-December
+  return 'Q4'; // January-March
+};
+
+const getMonthsInQuarter = (quarter: string): string[] => {
+  switch (quarter) {
+    case 'Q1': return ['April', 'May', 'June'];
+    case 'Q2': return ['July', 'August', 'September'];
+    case 'Q3': return ['October', 'November', 'December'];
+    case 'Q4': return ['January', 'February', 'March'];
+    default: return [];
+  }
+};
+
 export function DashboardContent() {
   const { toast } = useToast();
   const router = useRouter();
@@ -74,6 +100,7 @@ export function DashboardContent() {
   const [projects, setProjects] = useState<Project[]>([]);
   const [selectedProject, setSelectedProject] = useState<string>('all');
   const [selectedMonth, setSelectedMonth] = useState<string>('all');
+  const [selectedQuarter, setSelectedQuarter] = useState<string>('all');
   const [filteredTasks, setFilteredTasks] = useState<Task[]>([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [currentTask, setCurrentTask] = useState<Task | undefined>(undefined);
@@ -95,7 +122,12 @@ export function DashboardContent() {
   }));
 
   // Calculate productivity metrics at component level
-  const productivityMetrics = useProductivityMetrics(analyticsTasksData, leaves);
+  const productivityMetrics = useProductivityMetrics(
+    analyticsTasksData, 
+    leaves, 
+    selectedQuarter !== 'all' ? selectedQuarter : selectedMonth,
+    selectedQuarter !== 'all'
+  );
 
   useEffect(() => {
     const fetchData = async () => {
@@ -136,7 +168,7 @@ export function DashboardContent() {
     fetchData();
   }, [toast, router]);
 
-  // Filter tasks when project or month selection changes
+  // Filter tasks when project, month, or quarter selection changes
   useEffect(() => {
     let filtered = tasks;
 
@@ -145,54 +177,61 @@ export function DashboardContent() {
       filtered = filtered.filter(task => task.projectId === selectedProject);
     }
 
-    // Filter by month
-    if (selectedMonth !== 'all') {
-      filtered = filtered.filter(task => {
-        // Get month from task using the same logic as in task-list component
-        const getMonthFromTask = (task: Task) => {
-          // First, check if task has a month field
-          if (task.month) {
-            return task.month;
-          }
-          
-          // Check for date field (common in MongoDB tasks)
-          if ('date' in task && (task as any).date) {
-            const dateValue = (task as any).date;
-            // Handle MongoDB date format { $date: "..." } or direct date string
-            const dateString = typeof dateValue === 'object' && dateValue.$date ? dateValue.$date : dateValue;
-            const taskDate = new Date(dateString);
-            if (!isNaN(taskDate.getTime())) {
-              return taskDate.toLocaleString('default', { month: 'long' });
-            }
-          }
-          
-          // Check for createdAt field
-          if (task.createdAt) {
-            const createdDate = new Date(task.createdAt);
-            if (!isNaN(createdDate.getTime())) {
-              return createdDate.toLocaleString('default', { month: 'long' });
-            }
-          }
-          
-          // Check for dueDate field
-          if (task.dueDate) {
-            const dueDate = new Date(task.dueDate);
-            if (!isNaN(dueDate.getTime())) {
-              return dueDate.toLocaleString('default', { month: 'long' });
-            }
-          }
-          
-          // Fallback to current month
-          return new Date().toLocaleString('default', { month: 'long' });
-        };
+    // Get month from task using the same logic as in task-list component
+    const getMonthFromTask = (task: Task) => {
+      // First, check if task has a month field
+      if (task.month) {
+        return task.month;
+      }
+      
+      // Check for date field (common in MongoDB tasks)
+      if ('date' in task && (task as any).date) {
+        const dateValue = (task as any).date;
+        // Handle MongoDB date format { $date: "..." } or direct date string
+        const dateString = typeof dateValue === 'object' && dateValue.$date ? dateValue.$date : dateValue;
+        const taskDate = new Date(dateString);
+        if (!isNaN(taskDate.getTime())) {
+          return taskDate.toLocaleString('default', { month: 'long' });
+        }
+      }
+      
+      // Check for createdAt field
+      if (task.createdAt) {
+        const createdDate = new Date(task.createdAt);
+        if (!isNaN(createdDate.getTime())) {
+          return createdDate.toLocaleString('default', { month: 'long' });
+        }
+      }
+      
+      // Check for dueDate field
+      if (task.dueDate) {
+        const dueDate = new Date(task.dueDate);
+        if (!isNaN(dueDate.getTime())) {
+          return dueDate.toLocaleString('default', { month: 'long' });
+        }
+      }
+      
+      // Fallback to current month
+      return new Date().toLocaleString('default', { month: 'long' });
+    };
 
+    // Filter by quarter (takes precedence over month filter)
+    if (selectedQuarter !== 'all') {
+      const quarterMonths = getMonthsInQuarter(selectedQuarter);
+      filtered = filtered.filter(task => {
+        const taskMonth = getMonthFromTask(task);
+        return quarterMonths.includes(taskMonth);
+      });
+    } else if (selectedMonth !== 'all') {
+      // Filter by month only if no quarter is selected
+      filtered = filtered.filter(task => {
         const taskMonth = getMonthFromTask(task);
         return taskMonth === selectedMonth;
       });
     }
 
     setFilteredTasks(filtered);
-  }, [tasks, selectedProject, selectedMonth]);
+  }, [tasks, selectedProject, selectedMonth, selectedQuarter]);
 
   const addTask = async (taskData: TaskFormData) => {
     try {
@@ -355,7 +394,37 @@ export function DashboardContent() {
           </div>
           <div className="flex gap-2 items-center">
             <div className="flex items-center gap-2">
-              <Select value={selectedMonth} onValueChange={setSelectedMonth}>
+              <Select value={selectedQuarter} onValueChange={(value) => {
+                setSelectedQuarter(value);
+                // Reset month filter when quarter is selected
+                if (value !== 'all') {
+                  setSelectedMonth('all');
+                }
+              }}>
+                <SelectTrigger className="w-32">
+                  <SelectValue placeholder="Quarter" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Quarters</SelectItem>
+                  <SelectItem value="Q1">Q1 (Apr-Jun)</SelectItem>
+                  <SelectItem value="Q2">Q2 (Jul-Sep)</SelectItem>
+                  <SelectItem value="Q3">Q3 (Oct-Dec)</SelectItem>
+                  <SelectItem value="Q4">Q4 (Jan-Mar)</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="flex items-center gap-2">
+              <Select 
+                value={selectedMonth} 
+                onValueChange={(value) => {
+                  setSelectedMonth(value);
+                  // Reset quarter filter when month is selected
+                  if (value !== 'all') {
+                    setSelectedQuarter('all');
+                  }
+                }}
+                disabled={selectedQuarter !== 'all'}
+              >
                 <SelectTrigger className="w-40">
                   <SelectValue placeholder="Select month" />
                 </SelectTrigger>
