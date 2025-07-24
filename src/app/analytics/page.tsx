@@ -364,10 +364,6 @@ export default function AnalyticsPage() {
                     </SelectContent>
                   </Select>
                 </div>
-                
-                <Button onClick={handleExport} variant="outline">
-                  Export to Excel
-                </Button>
               </div>
             </div>
               

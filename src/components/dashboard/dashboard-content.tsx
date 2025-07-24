@@ -15,6 +15,7 @@ import { taskService, projectService, leaveService } from '@/lib/services';
 import { useProductivityMetrics } from '@/hooks/useProductivityMetrics';
 import { useToast } from '@/components/ui/use-toast';
 import { Task, Project, toLegacyTask, fromLegacyTask, LegacyTask } from '@/lib/types';
+import { ExportDialog } from '@/components/export/export-dialog';
 
 interface TaskFormData {
   taskId: string;
@@ -323,53 +324,7 @@ export function DashboardContent() {
     setIsModalOpen(true)
   }
 
-  const handleExport = async () => {
-    try {
-      // Import the utility function to calculate metrics without using hooks
-      const { calculateProductivityMetrics } = await import('@/lib/utils/productivity-metrics');
-      
-      // Get current month name to match the analytics page behavior
-      const currentMonth = new Date().toLocaleString('default', { month: 'long' });
-      
-      // Calculate metrics using the utility function with the current month
-      const exportMetrics = calculateProductivityMetrics(analyticsTasksData, leaves, currentMonth);
-      
-      // Use the calculated metrics for export
-      const analyticsData = {
-        metrics: {
-          totalTasks: exportMetrics.totalTasks,
-          totalWorkingHours: exportMetrics.totalWorkingHours,
-          totalApprovedHours: exportMetrics.totalApprovedHours,
-          totalWorkingDaysInMonth: exportMetrics.totalWorkingDaysInMonth,
-          totalLeaves: exportMetrics.totalLeaves,
-          effectiveWorkingDays: exportMetrics.effectiveWorkingDays,
-          productivity: exportMetrics.productivity,
-          month: exportMetrics.month,
-          year: exportMetrics.year,
-        },
-        trends: [],
-        leaves: leaves,
-      };
 
-      // Import the export function dynamically
-      const { exportDashboardAndAnalyticsToExcel } = await import('@/lib/export/excel');
-      
-      // Export with projects data for integration links
-      await exportDashboardAndAnalyticsToExcel(analyticsTasksData, analyticsData, projects);
-      
-      toast({
-        title: 'Export Successful',
-        description: 'Tasks have been exported to Excel with integration links.',
-      });
-    } catch (err: unknown) {
-      console.error('Export failed:', err);
-      toast({
-        variant: 'destructive',
-        title: 'Export Failed',
-        description: 'Failed to export tasks. Please try again.',
-      });
-    }
-  };
 
   // Show skeleton while loading
   if (loading) {
@@ -461,9 +416,7 @@ export function DashboardContent() {
                 </SelectContent>
               </Select>
             </div>
-            <Button onClick={handleExport} variant="outline">
-              Export to Excel
-            </Button>
+            <ExportDialog allTasks={tasks} allLeaves={leaves} />
             <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
               <DialogTrigger asChild>
                 <Button className="h-10 px-4 py-2 text-sm font-medium rounded-md bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-blue-500 shadow-sm">
