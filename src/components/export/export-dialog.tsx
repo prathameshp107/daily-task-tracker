@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Label } from '@/components/ui/label';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
@@ -89,12 +90,34 @@ export function ExportDialog({ allTasks, allLeaves }: ExportDialogProps) {
   const { toast } = useToast();
   const [isOpen, setIsOpen] = useState(false);
   const [isExporting, setIsExporting] = useState(false);
+  const [showWarning, setShowWarning] = useState(false);
+  const [warningMessage, setWarningMessage] = useState('');
   
-  // Export options
+  // Get current date for defaults
+  const getCurrentMonth = () => {
+    return new Date().toLocaleString('default', { month: 'long' });
+  };
+  
+  const getCurrentYear = () => {
+    return new Date().getFullYear().toString();
+  };
+  
+  const getCurrentQuarter = () => {
+    const currentMonth = getCurrentMonth();
+    const monthMap: { [key: string]: string } = {
+      'April': 'Q1', 'May': 'Q1', 'June': 'Q1',
+      'July': 'Q2', 'August': 'Q2', 'September': 'Q2',
+      'October': 'Q3', 'November': 'Q3', 'December': 'Q3',
+      'January': 'Q4', 'February': 'Q4', 'March': 'Q4'
+    };
+    return monthMap[currentMonth] || 'Q1';
+  };
+
+  // Export options with current date defaults
   const [exportType, setExportType] = useState<'quarter' | 'month' | 'year'>('month');
-  const [selectedQuarter, setSelectedQuarter] = useState<string>('Q1');
-  const [selectedMonth, setSelectedMonth] = useState<string>('January');
-  const [selectedYear, setSelectedYear] = useState<string>('2024');
+  const [selectedQuarter, setSelectedQuarter] = useState<string>(getCurrentQuarter());
+  const [selectedMonth, setSelectedMonth] = useState<string>(getCurrentMonth());
+  const [selectedYear, setSelectedYear] = useState<string>(getCurrentYear());
 
   // Available options
   const quarters = [
@@ -111,32 +134,44 @@ export function ExportDialog({ allTasks, allLeaves }: ExportDialogProps) {
 
   const years = ['2023', '2024', '2025', '2026'];
 
-  const handleExport = async () => {
+  const checkDataAndExport = async () => {
+    let filteredTasks: MainTask[] = [];
+    let periodLabel = '';
+
+    // Filter tasks based on export type
+    if (exportType === 'quarter') {
+      const quarterMonths = getMonthsInQuarter(selectedQuarter);
+      filteredTasks = allTasks.filter(task => {
+        const taskMonth = getMonthFromTask(task);
+        return quarterMonths.includes(taskMonth);
+      });
+      periodLabel = `${selectedQuarter} ${selectedYear}`;
+    } else if (exportType === 'month') {
+      filteredTasks = allTasks.filter(task => {
+        const taskMonth = getMonthFromTask(task);
+        return taskMonth === selectedMonth;
+      });
+      periodLabel = `${selectedMonth} ${selectedYear}`;
+    } else if (exportType === 'year') {
+      // For year, we'll include all tasks (you can add year filtering logic if needed)
+      filteredTasks = allTasks;
+      periodLabel = selectedYear;
+    }
+
+    // Check if filtered tasks is empty
+    if (filteredTasks.length === 0) {
+      setWarningMessage(`No task data found for ${periodLabel}. The exported Excel file will be empty.`);
+      setShowWarning(true);
+      return;
+    }
+
+    // If data exists, proceed with export
+    await handleExport(filteredTasks, periodLabel);
+  };
+
+  const handleExport = async (filteredTasks: MainTask[], periodLabel: string) => {
     try {
       setIsExporting(true);
-
-      let filteredTasks: MainTask[] = [];
-      let periodLabel = '';
-
-      // Filter tasks based on export type
-      if (exportType === 'quarter') {
-        const quarterMonths = getMonthsInQuarter(selectedQuarter);
-        filteredTasks = allTasks.filter(task => {
-          const taskMonth = getMonthFromTask(task);
-          return quarterMonths.includes(taskMonth);
-        });
-        periodLabel = `${selectedQuarter} ${selectedYear}`;
-      } else if (exportType === 'month') {
-        filteredTasks = allTasks.filter(task => {
-          const taskMonth = getMonthFromTask(task);
-          return taskMonth === selectedMonth;
-        });
-        periodLabel = `${selectedMonth} ${selectedYear}`;
-      } else if (exportType === 'year') {
-        // For year, we'll include all tasks (you can add year filtering logic if needed)
-        filteredTasks = allTasks;
-        periodLabel = selectedYear;
-      }
 
       // Convert to analytics format
       const analyticsTasksData = filteredTasks.map(convertToAnalyticsTask);
@@ -220,13 +255,14 @@ export function ExportDialog({ allTasks, allLeaves }: ExportDialogProps) {
   };
 
   return (
-    <Dialog open={isOpen} onOpenChange={setIsOpen}>
-      <DialogTrigger asChild>
-        <Button variant="outline" className="flex items-center gap-2">
-          <Download className="h-4 w-4" />
-          Export to Excel
-        </Button>
-      </DialogTrigger>
+    <>
+      <Dialog open={isOpen} onOpenChange={setIsOpen}>
+        <DialogTrigger asChild>
+          <Button variant="outline" className="flex items-center gap-2">
+            <Download className="h-4 w-4" />
+            Export to Excel
+          </Button>
+        </DialogTrigger>
       <DialogContent className="sm:max-w-[500px]">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
@@ -330,7 +366,7 @@ export function ExportDialog({ allTasks, allLeaves }: ExportDialogProps) {
           <Button variant="outline" onClick={() => setIsOpen(false)} disabled={isExporting}>
             Cancel
           </Button>
-          <Button onClick={handleExport} disabled={isExporting} className="flex items-center gap-2">
+          <Button onClick={checkDataAndExport} disabled={isExporting} className="flex items-center gap-2">
             {isExporting ? (
               <>
                 <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
@@ -346,5 +382,62 @@ export function ExportDialog({ allTasks, allLeaves }: ExportDialogProps) {
         </div>
       </DialogContent>
     </Dialog>
+
+    {/* Warning Dialog for Empty Data */}
+    <AlertDialog open={showWarning} onOpenChange={setShowWarning}>
+      <AlertDialogContent>
+        <AlertDialogHeader>
+          <AlertDialogTitle className="flex items-center gap-2">
+            <FileSpreadsheet className="h-5 w-5 text-amber-500" />
+            No Data Found
+          </AlertDialogTitle>
+          <AlertDialogDescription className="text-base">
+            {warningMessage}
+          </AlertDialogDescription>
+        </AlertDialogHeader>
+        <div className="bg-amber-50 dark:bg-amber-900/20 p-4 rounded-lg border border-amber-200 dark:border-amber-800 my-4">
+          <div className="flex items-start gap-2">
+            <div className="text-amber-600 dark:text-amber-400 mt-0.5">⚠️</div>
+            <div>
+              <p className="text-sm font-medium text-amber-800 dark:text-amber-200 mb-1">
+                What this means:
+              </p>
+              <ul className="text-sm text-amber-700 dark:text-amber-300 space-y-1">
+                <li>• The Excel file will contain headers but no task data</li>
+                <li>• Productivity metrics will show zero values</li>
+                <li>• You might want to select a different time period</li>
+              </ul>
+            </div>
+          </div>
+        </div>
+        <AlertDialogFooter>
+          <AlertDialogCancel onClick={() => setShowWarning(false)}>
+            Cancel
+          </AlertDialogCancel>
+          <AlertDialogAction 
+            onClick={async () => {
+              setShowWarning(false);
+              // Proceed with export even with empty data
+              let filteredTasks: MainTask[] = [];
+              let periodLabel = '';
+              
+              if (exportType === 'quarter') {
+                periodLabel = `${selectedQuarter} ${selectedYear}`;
+              } else if (exportType === 'month') {
+                periodLabel = `${selectedMonth} ${selectedYear}`;
+              } else if (exportType === 'year') {
+                periodLabel = selectedYear;
+              }
+              
+              await handleExport(filteredTasks, periodLabel);
+            }}
+            className="bg-amber-600 hover:bg-amber-700"
+          >
+            Download Anyway
+          </AlertDialogAction>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
+    </>
   );
 }

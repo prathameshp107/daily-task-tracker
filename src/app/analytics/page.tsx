@@ -15,6 +15,7 @@ import { taskService, leaveService, projectService } from "@/lib/services";
 import { useToast } from "@/components/ui/use-toast";
 import { Task as MainTask } from "@/lib/types";
 import { Task as AnalyticsTask } from "@/lib/analytics/types";
+import { ExportDialog } from "@/components/export/export-dialog";
 
 // Quarter utility functions
 const getQuarterFromMonth = (monthName: string): string => {
@@ -364,6 +365,37 @@ export default function AnalyticsPage() {
                     </SelectContent>
                   </Select>
                 </div>
+                
+                {/* Export Dialog */}
+                <ExportDialog 
+                  allTasks={allTasks.map(task => ({
+                    _id: task.taskId,
+                    id: task.taskId,
+                    title: task.description,
+                    description: task.description,
+                    type: task.taskType,
+                    estimatedHours: task.totalHours,
+                    totalHours: task.totalHours,
+                    actualHours: task.approvedHours,
+                    approvedHours: task.approvedHours,
+                    project: task.project,
+                    month: task.month,
+                    note: task.note,
+                    status: task.status === 'todo' ? 'pending' : task.status === 'done' ? 'completed' : task.status,
+                    completed: task.completed,
+                    taskNumber: (task as any).taskNumber || '',
+                    projectId: '',
+                    dueDate: '',
+                    labels: [],
+                    priority: 'medium' as const,
+                    assigneeId: '',
+                    reporterId: '',
+                    createdAt: new Date().toISOString(),
+                    updatedAt: new Date().toISOString(),
+                    assignedTo: '',
+                  }))} 
+                  allLeaves={leaves} 
+                />
               </div>
             </div>
               
