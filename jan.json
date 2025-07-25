@@ -1,0 +1,27 @@
+[
+  {
+    "projectId": {
+      "$oid": ""
+    },
+    "userId": {
+      "$oid": "68jk"
+    },
+    "taskNumber": "25978",
+    "type": "FT Development",
+    "description": "FT - Refactoring DownloadMultipleFiles: From DM HomeController to Backend Service Layer",
+    "totalHours": 16,
+    "approvedHours": 16,
+    "status": "pending",
+    "note": "",
+    "date": {
+      "$date": "2025-07-01T00:00:00.000Z"
+    },
+    "month": "June",
+    "createdAt": {
+      "$date": "2025-07-24T00:00:00.000Z"
+    },
+    "updatedAt": {
+      "$date": "2025-07-24T00:00:00.000Z"
+    }
+  }
+]
