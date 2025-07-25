@@ -11,6 +11,7 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
+import { Switch } from '@/components/ui/switch';
 import { Pencil, Trash2, Plus, Loader2 } from 'lucide-react';
 import { toast } from '@/components/ui/use-toast';
 import { projectService } from '@/lib/services';
@@ -51,6 +52,7 @@ export function ProjectsManagement({ selectedMonth = 'all' }: ProjectsManagement
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [currentProject, setCurrentProject] = useState<Project | null>(null);
+  const [integrationType, setIntegrationType] = useState<'jira' | 'redmine'>('jira');
 
   const form = useForm<ProjectFormValues>({
     resolver: zodResolver(projectSchema),
@@ -205,6 +207,16 @@ export function ProjectsManagement({ selectedMonth = 'all' }: ProjectsManagement
       redmineUrl: project.integrations?.redmine?.url || '',
       redmineProjectId: project.integrations?.redmine?.projectId || '',
     });
+    
+    // Set integration type based on existing data
+    if (project.integrations?.jira?.url || project.integrations?.jira?.projectKey) {
+      setIntegrationType('jira');
+    } else if (project.integrations?.redmine?.url || project.integrations?.redmine?.projectId) {
+      setIntegrationType('redmine');
+    } else {
+      setIntegrationType('jira'); // Default to jira
+    }
+    
     setCurrentProject(project);
     setIsEditing(true);
     setIsFormOpen(true);
@@ -431,8 +443,33 @@ export function ProjectsManagement({ selectedMonth = 'all' }: ProjectsManagement
               />
 
               <div className="space-y-4 pt-4 border-t mt-4">
-                <h4 className="text-sm font-medium">Integration Settings</h4>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="flex items-center justify-between">
+                  <h4 className="text-sm font-medium">Integration Settings</h4>
+                  <div className="flex items-center space-x-3">
+                    <span className={`text-sm ${integrationType === 'jira' ? 'font-medium text-blue-600' : 'text-muted-foreground'}`}>
+                      Jira
+                    </span>
+                    <Switch
+                      checked={integrationType === 'redmine'}
+                      onCheckedChange={(checked) => {
+                        setIntegrationType(checked ? 'redmine' : 'jira');
+                        // Clear the other integration fields when switching
+                        if (checked) {
+                          form.setValue('jiraUrl', '');
+                          form.setValue('jiraProjectKey', '');
+                        } else {
+                          form.setValue('redmineUrl', '');
+                          form.setValue('redmineProjectId', '');
+                        }
+                      }}
+                    />
+                    <span className={`text-sm ${integrationType === 'redmine' ? 'font-medium text-red-600' : 'text-muted-foreground'}`}>
+                      Redmine
+                    </span>
+                  </div>
+                </div>
+
+                {integrationType === 'jira' ? (
                   <div className="space-y-2 p-4 border rounded-lg">
                     <div className="flex items-center gap-2 mb-2">
                       <svg className="w-5 h-5 text-blue-600" viewBox="0 0 16 16" fill="currentColor">
@@ -440,34 +477,36 @@ export function ProjectsManagement({ selectedMonth = 'all' }: ProjectsManagement
                       </svg>
                       <h5 className="font-medium">Jira Integration</h5>
                     </div>
-                    <FormField
-                      control={form.control}
-                      name="jiraUrl"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Jira URL</FormLabel>
-                          <FormControl>
-                            <Input placeholder="https://your-domain.atlassian.net" {...field} />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                    <FormField
-                      control={form.control}
-                      name="jiraProjectKey"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Project Key</FormLabel>
-                          <FormControl>
-                            <Input placeholder="e.g., PROJ" {...field} />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <FormField
+                        control={form.control}
+                        name="jiraUrl"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Jira URL</FormLabel>
+                            <FormControl>
+                              <Input placeholder="https://your-domain.atlassian.net" {...field} />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                      <FormField
+                        control={form.control}
+                        name="jiraProjectKey"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Project Key</FormLabel>
+                            <FormControl>
+                              <Input placeholder="e.g., PROJ" {...field} />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                    </div>
                   </div>
-
+                ) : (
                   <div className="space-y-2 p-4 border rounded-lg">
                     <div className="flex items-center gap-2 mb-2">
                       <svg className="w-5 h-5 text-red-600" viewBox="0 0 24 24" fill="currentColor">
@@ -476,34 +515,36 @@ export function ProjectsManagement({ selectedMonth = 'all' }: ProjectsManagement
                       </svg>
                       <h5 className="font-medium">Redmine Integration</h5>
                     </div>
-                    <FormField
-                      control={form.control}
-                      name="redmineUrl"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Redmine URL</FormLabel>
-                          <FormControl>
-                            <Input placeholder="https://redmine.yourdomain.com" {...field} />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                    <FormField
-                      control={form.control}
-                      name="redmineProjectId"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Project ID</FormLabel>
-                          <FormControl>
-                            <Input placeholder="e.g., 123" {...field} />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <FormField
+                        control={form.control}
+                        name="redmineUrl"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Redmine URL</FormLabel>
+                            <FormControl>
+                              <Input placeholder="https://redmine.yourdomain.com" {...field} />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                      <FormField
+                        control={form.control}
+                        name="redmineProjectId"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Project ID</FormLabel>
+                            <FormControl>
+                              <Input placeholder="e.g., 123" {...field} />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                    </div>
                   </div>
-                </div>
+                )}
               </div>
 
               <div className="flex justify-end space-x-2 pt-2">
