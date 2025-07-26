@@ -7,14 +7,23 @@ export async function authenticateToken(req: NextRequest) {
   const authHeader = req.headers.get('authorization');
   const token = authHeader && authHeader.split(' ')[1];
 
-  // console.log('[AUTH] Request headers:', req.headers);
+  // console.log('[AUTH] Request headers:', Object.fromEntries(req.headers.entries()));
   // console.log('[AUTH] Authorization header:', authHeader);
-  // console.log('[AUTH] Token:', token);
+  // console.log('[AUTH] Token:', token ? `${token.substring(0, 20)}...` : 'null');
 
   if (!token) {
     console.log('[AUTH] No token provided');
     return NextResponse.json(
       { error: 'Authentication required', reason: 'No token provided' },
+      { status: 401 }
+    );
+  }
+
+  // Check if token looks like a JWT (has 3 parts separated by dots)
+  if (token.split('.').length !== 3) {
+    console.log('[AUTH] Malformed token - not a valid JWT format');
+    return NextResponse.json(
+      { error: 'Invalid token format', reason: 'Token is not a valid JWT' },
       { status: 401 }
     );
   }

@@ -28,6 +28,8 @@ export interface Task {
   completed: boolean;
   assignedTo?: string;
   taskNumber: string;
+  redmineId?: number; // Optional field for tasks saved from Redmine
+  redmineData?: any; // Optional field to store original Redmine data
 }
 
 export interface Project {
