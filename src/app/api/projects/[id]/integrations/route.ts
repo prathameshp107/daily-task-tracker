@@ -66,11 +66,12 @@ export async function PUT(
 
   // Validate JIRA integration if provided
   if (jira) {
-    if (!jira.host || !jira.username || !jira.apiToken) {
+    if (!jira.url || !jira.email || !jira.apiToken || !jira.projectKey) {
       return NextResponse.json(
         { 
-          error: 'JIRA integration requires host, username, and apiToken',
-          field: 'jira'
+          error: 'JIRA integration requires URL, email, API token, and project key',
+          field: 'jira',
+          requiredFields: ['url', 'email', 'apiToken', 'projectKey']
         },
         { status: 400 }
       );
@@ -79,11 +80,12 @@ export async function PUT(
 
   // Validate Redmine integration if provided
   if (redmine) {
-    if (!redmine.host || !redmine.apiKey) {
+    if (!redmine.url || !redmine.apiKey || !redmine.projectId) {
       return NextResponse.json(
         { 
-          error: 'Redmine integration requires host and apiKey',
-          field: 'redmine'
+          error: 'Redmine integration requires URL, API key, and project ID',
+          field: 'redmine',
+          requiredFields: ['url', 'apiKey', 'projectId']
         },
         { status: 400 }
       );

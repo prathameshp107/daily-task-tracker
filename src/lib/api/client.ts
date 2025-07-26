@@ -1,25 +1,7 @@
 import axios, { AxiosError, AxiosInstance, AxiosRequestConfig, AxiosResponse } from 'axios';
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || '/api';
-
-export interface ApiResponse<T = any> {
-  data: T;
-  status: number;
-  statusText: string;
-  headers: any;
-}
-
-export class ApiError extends Error {
-  status: number;
-  data: any;
-
-  constructor(status: number, message: string, data: any = {}) {
-    super(message);
-    this.name = 'ApiError';
-    this.status = status;
-    this.data = data;
-  }
-}
+// Using empty string as base URL since Next.js API routes are relative to /api
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || '';
 
 class ApiClient {
   private client: AxiosInstance;
@@ -50,87 +32,65 @@ class ApiClient {
       }
     );
 
-    // Response interceptor for error handling
+    // Response interceptor to handle errors
     this.client.interceptors.response.use(
-      (response: AxiosResponse) => {
-        // Return the full response with data, status, etc.
-        return {
-          data: response.data,
-          status: response.status,
-          statusText: response.statusText,
-          headers: response.headers,
-        };
-      },
+      (response: AxiosResponse) => response,
       (error: AxiosError) => {
         if (error.response) {
           // Handle 401 Unauthorized
           if (error.response.status === 401) {
-            // Clear token and redirect to login
+            // Clear auth token and redirect to login
             if (typeof window !== 'undefined') {
               localStorage.removeItem('auth_token');
               window.location.href = '/login';
             }
           }
-          
-          // Create a consistent error format
-          const apiError = new ApiError(
-            error.response.status,
-            (error.response.data as any)?.message || 'An error occurred',
-            error.response.data
-          );
-          return Promise.reject(apiError);
+          return Promise.reject(error);
         }
-        
-        return Promise.reject(
-          new ApiError(500, 'Network error. Please check your connection and try again.')
-        );
+        return Promise.reject(error);
       }
     );
   }
 
-  // Generic request method with proper typing
-  async request<T = any>(config: AxiosRequestConfig): Promise<ApiResponse<T>> {
-    try {
-      return await this.client.request<ApiResponse<T>>(config);
-    } catch (error) {
-      if (error instanceof ApiError) {
-        throw error;
-      }
-      throw new ApiError(500, 'An unexpected error occurred');
-    }
-  }
-
   // HTTP Methods with proper typing
-  async get<T = any>(url: string, config?: AxiosRequestConfig): Promise<ApiResponse<T>> {
-    return this.request<T>({ ...config, method: 'GET', url });
+  async get<T = any>(url: string, config?: AxiosRequestConfig): Promise<T> {
+    const response = await this.client.get<T>(url, config);
+    return response.data;
   }
 
-  async post<T = any>(
-    url: string,
-    data?: any,
+  async post<T = any, R = any>(
+    url: string, 
+    data?: T, 
     config?: AxiosRequestConfig
-  ): Promise<ApiResponse<T>> {
-    return this.request<T>({ ...config, method: 'POST', url, data });
+  ): Promise<R> {
+    const response = await this.client.post<R>(url, data, config);
+    return response.data;
   }
 
-  async put<T = any>(
-    url: string,
-    data?: any,
+  async put<T = any, R = any>(
+    url: string, 
+    data?: T, 
     config?: AxiosRequestConfig
-  ): Promise<ApiResponse<T>> {
-    return this.request<T>({ ...config, method: 'PUT', url, data });
+  ): Promise<R> {
+    const response = await this.client.put<R>(url, data, config);
+    return response.data;
   }
 
-  async delete<T = any>(url: string, config?: AxiosRequestConfig): Promise<ApiResponse<T>> {
-    return this.request<T>({ ...config, method: 'DELETE', url });
-  }
-
-  async patch<T = any>(
-    url: string,
-    data?: any,
+  async delete<T = any>(
+    url: string, 
     config?: AxiosRequestConfig
-  ): Promise<ApiResponse<T>> {
-    return this.request<T>({ ...config, method: 'PATCH', url, data });
+  ): Promise<T> {
+    const response = await this.client.delete<T>(url, config);
+    return response.data;
+  }
+
+  async patch<T = any, R = any>(
+    url: string, 
+    data?: T, 
+    config?: AxiosRequestConfig
+  ): Promise<R> {
+    const response = await this.client.patch<R>(url, data, config);
+    return response.data;
   }
 }
 

@@ -14,28 +14,31 @@ export interface UpdateProjectDto extends Partial<CreateProjectDto> { }
 
 export const projectService = {
   async getProjects(): Promise<Project[]> {
-    const response = await apiClient.get('/projects');
-    // Return only the array, not the whole response object
-    return response.data.data || [];
+    const response = await apiClient.get<{ data: Project[] }>('/projects');
+    // The API returns { success: boolean, data: Project[] }
+    return response.data || [];
   },
 
   async getProjectById(projectId: string): Promise<Project> {
-    const response = await apiClient.get(`/projects/${projectId}`);
+    const response = await apiClient.get<{ data: Project }>(`/projects/${projectId}`);
     return response.data;
   },
 
   async createProject(data: CreateProjectDto): Promise<Project> {
-    const response = await apiClient.post('/projects', data);
-    return response.data.data;
+    const response = await apiClient.post<CreateProjectDto, { data: Project }>('/projects', data);
+    return response.data;
   },
 
   async updateProject(projectId: string, updates: UpdateProjectDto): Promise<Project> {
-    const response = await apiClient.put(`/projects/${projectId}`, updates);
-    return response.data.data;
+    const response = await apiClient.put<UpdateProjectDto, { data: Project }>(
+      `/projects/${projectId}`, 
+      updates
+    );
+    return response.data;
   },
 
   async deleteProject(projectId: string): Promise<{ success: boolean }> {
-    await apiClient.delete(`/projects/${projectId}`);
+    await apiClient.delete<{ success: boolean }>(`/projects/${projectId}`);
     return { success: true };
   },
 };

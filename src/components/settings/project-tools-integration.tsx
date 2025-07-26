@@ -18,17 +18,19 @@ import { Project } from '@/lib/types';
 import { Form, FormItem, FormField, FormLabel, FormControl, FormMessage } from '@/components/ui/form';
 
 const jiraSchema = z.object({
+  // Required fields for basic integration
   url: z.string().url('Please enter a valid URL'),
   email: z.string().email('Please enter a valid email'),
   apiToken: z.string().min(1, 'API token is required'),
   projectKey: z.string().min(1, 'Project key is required'),
   syncEnabled: z.boolean(),
-  // Automated fields
+  
+  // Optional fields for advanced/automated configuration
   autoSync: z.boolean().optional(),
   syncInterval: z.number().min(5).max(1440).optional(),
   autoAssignTasks: z.boolean().optional(),
   syncStatus: z.enum(['new', 'in-progress', 'done', 'all']).optional(),
-  webhookUrl: z.string().url().optional().or(z.literal('')),
+  webhookUrl: z.string().url('Please enter a valid URL').or(z.literal('')).optional(),
   jqlFilter: z.string().optional(),
   assigneeFilter: z.enum(['current-user', 'all', 'unassigned']).optional(),
   syncComments: z.boolean().optional(),
@@ -37,16 +39,18 @@ const jiraSchema = z.object({
 });
 
 const redmineSchema = z.object({
+  // Required fields for basic integration
   url: z.string().url('Please enter a valid URL'),
   apiKey: z.string().min(1, 'API key is required'),
   projectId: z.string().min(1, 'Project ID is required'),
   syncEnabled: z.boolean(),
-  // Automated fields
+  
+  // Optional fields for advanced/automated configuration
   autoSync: z.boolean().optional(),
   syncInterval: z.number().min(5).max(1440).optional(),
   autoAssignTasks: z.boolean().optional(),
   syncStatus: z.enum(['new', 'in-progress', 'closed', 'all']).optional(),
-  webhookUrl: z.string().url().optional().or(z.literal('')),
+  webhookUrl: z.string().url('Please enter a valid URL').or(z.literal('')).optional(),
   trackerId: z.string().optional(),
   assigneeFilter: z.enum(['current-user', 'all', 'unassigned']).optional(),
   syncComments: z.boolean().optional(),
