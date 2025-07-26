@@ -11,9 +11,14 @@ export async function GET(req: NextRequest) {
   }
 
   // Return user profile (password is already excluded in the auth middleware)
+  // Add integrationMode to the response if present
+  const user = authResponse.user;
   return NextResponse.json({
     success: true,
-    data: authResponse.user
+    data: {
+      ...user,
+      integrationMode: user.integrationMode || 'manual',
+    }
   });
 }
 
@@ -25,12 +30,12 @@ export async function PUT(req: NextRequest) {
     return authResponse;
   }
 
-  const { name, email, avatar } = await req.json();
+  const { name, email, avatar, integrationMode } = await req.json();
   
   // Validate input
-  if (!name && !email && !avatar) {
+  if (!name && !email && !avatar && !integrationMode) {
     return NextResponse.json(
-      { error: 'At least one field (name, email, or avatar) is required' },
+      { error: 'At least one field (name, email, avatar, or integrationMode) is required' },
       { status: 400 }
     );
   }
@@ -49,6 +54,7 @@ export async function PUT(req: NextRequest) {
   if (name) updateData.name = name;
   if (email) updateData.email = email;
   if (avatar) updateData.avatar = avatar;
+  if (integrationMode) updateData.integrationMode = integrationMode;
 
   try {
     // Check if email is already taken by another user
@@ -78,7 +84,10 @@ export async function PUT(req: NextRequest) {
 
     return NextResponse.json({
       success: true,
-      data: result,
+      data: {
+        ...result,
+        integrationMode: updateData.integrationMode || result.integrationMode || 'manual',
+      },
       message: 'Profile updated successfully'
     });
 

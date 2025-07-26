@@ -44,7 +44,8 @@ const redmineSchema = z.object({
   apiKey: z.string().min(1, 'API key is required'),
   projectId: z.string().min(1, 'Project ID is required'),
   syncEnabled: z.boolean(),
-  
+  // Add username for Redmine login
+  username: z.string().min(1, 'Username is required'),
   // Optional fields for advanced/automated configuration
   autoSync: z.boolean().optional(),
   syncInterval: z.number().min(5).max(1440).optional(),
@@ -77,16 +78,23 @@ interface ProjectIntegrations {
 
 interface ProjectToolsIntegrationProps {
   isAutomated: boolean;
+  onModeChange?: (mode: 'manual' | 'automated') => void;
+  selectedProjectId: string;
 }
 
-export function ProjectToolsIntegration({ isAutomated }: ProjectToolsIntegrationProps) {
+export function ProjectToolsIntegration({ isAutomated, onModeChange, selectedProjectId }: ProjectToolsIntegrationProps) {
   const [projects, setProjects] = useState<Project[]>([]);
-  const [selectedProject, setSelectedProject] = useState<string>('');
+  const [selectedProject, setSelectedProject] = useState<string>(selectedProjectId);
   const [selectedProjectData, setSelectedProjectData] = useState<Project | null>(null);
   const [integrations, setIntegrations] = useState<ProjectIntegrations>({});
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [integrationType, setIntegrationType] = useState<IntegrationType | null>(null);
+
+  // Sync selectedProject with selectedProjectId prop
+  useEffect(() => {
+    setSelectedProject(selectedProjectId);
+  }, [selectedProjectId]);
 
   // Load projects and integrations from service
   useEffect(() => {
@@ -133,6 +141,10 @@ export function ProjectToolsIntegration({ isAutomated }: ProjectToolsIntegration
         // Determine integration type based on existing project data
         if (project.integrations?.jira?.url || project.integrations?.jira?.projectKey) {
           setIntegrationType('jira');
+          // Set the integration mode based on saved data
+          if (project.integrations.jira.integrationMode && onModeChange) {
+            onModeChange(project.integrations.jira.integrationMode);
+          }
           // Load Jira integration data into form
           jiraForm.reset({
             url: project.integrations.jira.url || '',
@@ -153,12 +165,17 @@ export function ProjectToolsIntegration({ isAutomated }: ProjectToolsIntegration
           });
         } else if (project.integrations?.redmine?.url || project.integrations?.redmine?.projectId) {
           setIntegrationType('redmine');
+          // Set the integration mode based on saved data
+          if (project.integrations.redmine.integrationMode && onModeChange) {
+            onModeChange(project.integrations.redmine.integrationMode);
+          }
           // Load Redmine integration data into form
           redmineForm.reset({
             url: project.integrations.redmine.url || '',
             apiKey: project.integrations.redmine.apiKey || '',
             projectId: project.integrations.redmine.projectId || '',
             syncEnabled: project.integrations.redmine.syncEnabled ?? true,
+            username: project.integrations.redmine.username || '',
             autoSync: project.integrations.redmine.autoSync ?? false,
             syncInterval: project.integrations.redmine.syncInterval ?? 30,
             autoAssignTasks: project.integrations.redmine.autoAssignTasks ?? false,
@@ -185,7 +202,7 @@ export function ProjectToolsIntegration({ isAutomated }: ProjectToolsIntegration
     };
 
     loadProjectIntegrations();
-  }, [selectedProject, projects]);
+  }, [selectedProject, projects, onModeChange]);
 
   const saveIntegrationForProject = async (projectName: string, type: IntegrationType, config: any) => {
     try {
@@ -199,13 +216,19 @@ export function ProjectToolsIntegration({ isAutomated }: ProjectToolsIntegration
         return;
       }
 
+      // Add integrationMode to the config
+      const configWithMode = {
+        ...config,
+        integrationMode: isAutomated ? 'automated' : 'manual'
+      };
+
       await integrationService.updateProjectIntegrations(project._id, {
-        [type]: config
+        [type]: configWithMode
       });
 
       setIntegrations(prev => ({
         ...prev,
-        [type]: config
+        [type]: configWithMode
       }));
 
       toast({
@@ -276,6 +299,7 @@ export function ProjectToolsIntegration({ isAutomated }: ProjectToolsIntegration
       apiKey: '',
       projectId: '',
       syncEnabled: true,
+      username: '',
       autoSync: false,
       syncInterval: 30,
       autoAssignTasks: false,
@@ -601,88 +625,6 @@ export function ProjectToolsIntegration({ isAutomated }: ProjectToolsIntegration
                             />
                           </div>
                         </div>
-
-                        {/* Advanced Options */}
-                        <div className="space-y-4">
-                          <div className="flex items-center gap-2 pb-3 border-b border-gray-200 dark:border-gray-700">
-                            <Zap className="w-4 h-4 text-purple-600" />
-                            <h4 className="text-sm font-semibold text-gray-900 dark:text-gray-100">Advanced Options</h4>
-                          </div>
-
-                          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                            <FormField
-                              control={jiraForm.control}
-                              name="autoAssignTasks"
-                              render={({ field }) => (
-                                <FormItem className="flex items-center justify-between p-4 border rounded-lg bg-gray-50/50 dark:bg-gray-800/50">
-                                  <div className="space-y-1">
-                                    <FormLabel className="text-sm font-medium">Auto Assign Tasks</FormLabel>
-                                    <p className="text-xs text-muted-foreground">Assign to current user</p>
-                                  </div>
-                                  <FormControl>
-                                    <Switch checked={field.value} onCheckedChange={field.onChange} />
-                                  </FormControl>
-                                </FormItem>
-                              )}
-                            />
-
-                            <FormField
-                              control={jiraForm.control}
-                              name="syncComments"
-                              render={({ field }) => (
-                                <FormItem className="flex items-center justify-between p-4 border rounded-lg bg-gray-50/50 dark:bg-gray-800/50">
-                                  <div className="space-y-1">
-                                    <FormLabel className="text-sm font-medium">Sync Comments</FormLabel>
-                                    <p className="text-xs text-muted-foreground">Include issue comments</p>
-                                  </div>
-                                  <FormControl>
-                                    <Switch checked={field.value} onCheckedChange={field.onChange} />
-                                  </FormControl>
-                                </FormItem>
-                              )}
-                            />
-                          </div>
-
-                          <div className="space-y-4">
-                            <FormField
-                              control={jiraForm.control}
-                              name="jqlFilter"
-                              render={({ field }) => (
-                                <FormItem>
-                                  <FormLabel className="text-sm font-medium">JQL Filter (Optional)</FormLabel>
-                                  <FormControl>
-                                    <Input
-                                      placeholder="project = IAC AND assignee = currentUser()"
-                                      className="h-10"
-                                      {...field}
-                                    />
-                                  </FormControl>
-                                  <p className="text-xs text-muted-foreground">Custom JQL query to filter issues</p>
-                                  <FormMessage />
-                                </FormItem>
-                              )}
-                            />
-
-                            <FormField
-                              control={jiraForm.control}
-                              name="webhookUrl"
-                              render={({ field }) => (
-                                <FormItem>
-                                  <FormLabel className="text-sm font-medium">Webhook URL (Optional)</FormLabel>
-                                  <FormControl>
-                                    <Input
-                                      placeholder="https://your-app.com/webhook/jira"
-                                      className="h-10"
-                                      {...field}
-                                    />
-                                  </FormControl>
-                                  <p className="text-xs text-muted-foreground">Receive real-time updates</p>
-                                  <FormMessage />
-                                </FormItem>
-                              )}
-                            />
-                          </div>
-                        </div>
                       </>
                     )}
 
@@ -773,6 +715,23 @@ export function ProjectToolsIntegration({ isAutomated }: ProjectToolsIntegration
                             )}
                           />
                         </div>
+                        <FormField
+                          control={redmineForm.control}
+                          name="username"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel className="text-sm font-medium">Redmine Login Username</FormLabel>
+                              <FormControl>
+                                <Input
+                                  placeholder="john.doe"
+                                  className="h-10"
+                                  {...field}
+                                />
+                              </FormControl>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
                       </div>
                     </div>
 
@@ -898,67 +857,6 @@ export function ProjectToolsIntegration({ isAutomated }: ProjectToolsIntegration
                               )}
                             />
                           </div>
-                        </div>
-
-                        {/* Advanced Options */}
-                        <div className="space-y-4">
-                          <div className="flex items-center gap-2 pb-3 border-b border-gray-200 dark:border-gray-700">
-                            <Zap className="w-4 h-4 text-purple-600" />
-                            <h4 className="text-sm font-semibold text-gray-900 dark:text-gray-100">Advanced Options</h4>
-                          </div>
-
-                          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                            <FormField
-                              control={redmineForm.control}
-                              name="autoAssignTasks"
-                              render={({ field }) => (
-                                <FormItem className="flex items-center justify-between p-4 border rounded-lg bg-gray-50/50 dark:bg-gray-800/50">
-                                  <div className="space-y-1">
-                                    <FormLabel className="text-sm font-medium">Auto Assign Tasks</FormLabel>
-                                    <p className="text-xs text-muted-foreground">Assign to current user</p>
-                                  </div>
-                                  <FormControl>
-                                    <Switch checked={field.value} onCheckedChange={field.onChange} />
-                                  </FormControl>
-                                </FormItem>
-                              )}
-                            />
-
-                            <FormField
-                              control={redmineForm.control}
-                              name="syncComments"
-                              render={({ field }) => (
-                                <FormItem className="flex items-center justify-between p-4 border rounded-lg bg-gray-50/50 dark:bg-gray-800/50">
-                                  <div className="space-y-1">
-                                    <FormLabel className="text-sm font-medium">Sync Comments</FormLabel>
-                                    <p className="text-xs text-muted-foreground">Include issue comments</p>
-                                  </div>
-                                  <FormControl>
-                                    <Switch checked={field.value} onCheckedChange={field.onChange} />
-                                  </FormControl>
-                                </FormItem>
-                              )}
-                            />
-                          </div>
-
-                          <FormField
-                            control={redmineForm.control}
-                            name="webhookUrl"
-                            render={({ field }) => (
-                              <FormItem>
-                                <FormLabel className="text-sm font-medium">Webhook URL (Optional)</FormLabel>
-                                <FormControl>
-                                  <Input
-                                    placeholder="https://your-app.com/webhook/redmine"
-                                    className="h-10"
-                                    {...field}
-                                  />
-                                </FormControl>
-                                <p className="text-xs text-muted-foreground">Receive real-time updates</p>
-                                <FormMessage />
-                              </FormItem>
-                            )}
-                          />
                         </div>
                       </>
                     )}

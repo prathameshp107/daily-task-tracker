@@ -40,6 +40,43 @@ export interface Project {
   updatedAt: string; // ISO date string
   createdBy: string;
   members: string[];
+  integrations?: {
+    jira?: {
+      url?: string;
+      email?: string;
+      apiToken?: string;
+      projectKey?: string;
+      syncEnabled?: boolean;
+      autoSync?: boolean;
+      syncInterval?: number;
+      autoAssignTasks?: boolean;
+      syncStatus?: string;
+      webhookUrl?: string;
+      jqlFilter?: string;
+      assigneeFilter?: string;
+      syncComments?: boolean;
+      syncAttachments?: boolean;
+      lastSyncDate?: string;
+      integrationMode?: 'manual' | 'automated';
+    };
+    redmine?: {
+      url?: string;
+      apiKey?: string;
+      projectId?: string;
+      syncEnabled?: boolean;
+      autoSync?: boolean;
+      syncInterval?: number;
+      autoAssignTasks?: boolean;
+      syncStatus?: string;
+      webhookUrl?: string;
+      trackerId?: string;
+      assigneeFilter?: string;
+      syncComments?: boolean;
+      syncAttachments?: boolean;
+      lastSyncDate?: string;
+      integrationMode?: 'manual' | 'automated';
+    };
+  };
 }
 
 // For backward compatibility with existing components

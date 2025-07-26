@@ -106,9 +106,9 @@ export const authService = {
   /**
    * Get current user profile
    */
-  async getCurrentUser(): Promise<UserProfile> {
+  async getCurrentUser(): Promise<UserProfile & { integrationMode?: 'manual' | 'automated' }> {
     try {
-      return await apiClient.get<UserProfile>('/user/me');
+      return await apiClient.get<UserProfile & { integrationMode?: 'manual' | 'automated' }>('/user/me');
     } catch (error) {
       console.error('Failed to fetch user profile:', error);
       throw error;
@@ -122,9 +122,10 @@ export const authService = {
     name?: string;
     email?: string;
     avatar?: string;
-  }): Promise<UserProfile> {
+    integrationMode?: 'manual' | 'automated';
+  }): Promise<UserProfile & { integrationMode?: 'manual' | 'automated' }> {
     try {
-      return await apiClient.put<UserProfile>('/user/me', updates);
+      return await apiClient.put<UserProfile & { integrationMode?: 'manual' | 'automated' }>('/user/me', updates);
     } catch (error) {
       console.error('Failed to update profile:', error);
       throw error;
