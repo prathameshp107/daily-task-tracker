@@ -108,7 +108,6 @@ interface IssueStatus {
   name: string;
 }
 
-
 interface JournalDetail {
   property: string;
   name: string;
@@ -142,6 +141,8 @@ type RedmineResponse<T> = T extends RedmineProject
 class RedmineService {
   private baseUrl: string;
   private apiKey: string;
+  private requestCache: Map<string, Promise<any>> = new Map();
+  private cacheTimeout: number = 5 * 60 * 1000; // 5 minutes cache
 
   constructor(baseUrl: string, apiKey: string) {
     this.baseUrl = baseUrl.endsWith('/') ? baseUrl : `${baseUrl}/`;
@@ -149,26 +150,74 @@ class RedmineService {
   }
 
   /**
-   * Make an authenticated request to the Redmine API
+   * Generate a cache key for the request
+   */
+  private getCacheKey(endpoint: string, params: Record<string, string>): string {
+    const sortedParams = Object.keys(params)
+      .sort()
+      .map(key => `${key}=${params[key]}`)
+      .join('&');
+    return `${this.baseUrl}:${endpoint}:${sortedParams}`;
+  }
+
+  /**
+   * Make an authenticated request to the Redmine API with simple caching
    */
   private async request<T>(
     endpoint: string,
     params: Record<string, string> = {}
   ): Promise<T> {
-    const url = new URL(endpoint, this.baseUrl);
+    const cacheKey = this.getCacheKey(endpoint, params);
     
-    // Add query parameters
-    Object.entries(params).forEach(([key, value]) => {
-      if (value) {
-        url.searchParams.append(key, value);
-      }
-    });
+    // Check if there's already a pending request for this endpoint
+    if (this.requestCache.has(cacheKey)) {
+      console.log(`🔄 Reusing existing request for: ${endpoint}`);
+      return this.requestCache.get(cacheKey)!;
+    }
+
+    console.log(`🚀 Making new request for: ${endpoint}`);
     
-    const response = await fetch(url.toString(), {
+    // Create the request promise
+    const requestPromise = this.makeRequest<T>(endpoint, params);
+    
+    // Store the promise in cache
+    this.requestCache.set(cacheKey, requestPromise);
+    
+    // Set up cache cleanup after timeout
+    setTimeout(() => {
+      this.requestCache.delete(cacheKey);
+      console.log(`🗑️ Cache expired for: ${endpoint}`);
+    }, this.cacheTimeout);
+    
+    try {
+      const result = await requestPromise;
+      return result;
+    } catch (error) {
+      // Remove failed request from cache immediately
+      this.requestCache.delete(cacheKey);
+      throw error;
+    }
+  }
+
+  /**
+   * Make the actual HTTP request to the Redmine API via proxy
+   */
+  private async makeRequest<T>(
+    endpoint: string,
+    params: Record<string, string> = {}
+  ): Promise<T> {
+    // Use the proxy API to avoid CORS issues
+    const response = await fetch('/api/redmine', {
+      method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'X-Redmine-API-Key': this.apiKey,
       },
+      body: JSON.stringify({
+        url: this.baseUrl,
+        apiKey: this.apiKey,
+        endpoint,
+        params,
+      }),
     });
 
     if (!response.ok) {
@@ -180,6 +229,14 @@ class RedmineService {
     }
 
     return response.json();
+  }
+
+  /**
+   * Clear the request cache (useful for forced refresh)
+   */
+  public clearCache(): void {
+    console.log('🧹 Clearing Redmine request cache');
+    this.requestCache.clear();
   }
 
   /**
@@ -248,9 +305,6 @@ class RedmineService {
     }
   }
 
-  /**
-   * Fetch all issues assigned to the current user in a specific project
-   */
   /**
    * Fetch journal entries (history) for a specific issue
    */
@@ -321,13 +375,7 @@ class RedmineService {
   }
 
   /**
-   * Fetch all issues assigned to the current user in a specific project
-   */
-  /**
    * Filter issues where the specified user has interacted (as author or in journals)
-   * @param issues Array of issues with journals to filter
-   * @param userId The user ID to filter by
-   * @returns Filtered array of issues where the user has interacted
    */
   filterIssuesByUserInteraction(issues: RedmineIssueWithJournals[], userId: number): RedmineIssueWithJournals[] {
     return issues.filter(issue => {
@@ -346,16 +394,7 @@ class RedmineService {
   }
 
   /**
-   * Get issues in a project where a specific user has interacted
-   * @param projectId Project ID
-   * @param userId User ID to filter by
-   * @param limit Maximum number of issues to return
-   * @returns Filtered issues where the user has interacted
-   */
-  /**
    * Find a user ID by their username in Redmine
-   * @param username The username to search for
-   * @returns The user ID if found, null otherwise
    */
   async findUserIdByUsername(username: string): Promise<number | null> {
     try {
@@ -401,9 +440,6 @@ class RedmineService {
       userId = foundUserId; // Use the found numeric ID
     }
 
-    // const statuses = await this.getAllIssueStatuses();
-    // console.log('Available statuses:', statuses);
-
     try {
       // First, get the project to verify it exists
       const project = await this.findProject(projectName);
@@ -445,12 +481,9 @@ class RedmineService {
     }
   }
 
-
   /**
    * Get the ID of a status by its name
    */
-
-  
   private async getAllIssueStatuses(): Promise<IssueStatus[] | null> {
     try {
       const response = await this.request<{ issue_statuses: IssueStatus[] }>(
@@ -464,7 +497,6 @@ class RedmineService {
       return null;
     }
   }
-  
 
   /**
    * Get the current user's ID
@@ -479,8 +511,6 @@ class RedmineService {
     }
   }
 
-
-  
   /**
    * Filter issues where the user moved the issue from "Dev" (status_id: 7) to "Code Review" (status_id: 16)
    */
@@ -571,8 +601,6 @@ class RedmineService {
   
     return result;
   }
-  
-  
 }
 
 /**
@@ -583,4 +611,3 @@ export function createRedmineService(redmineUrl: string, apiKey: string): Redmin
 }
 
 export default RedmineService;
-

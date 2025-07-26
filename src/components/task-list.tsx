@@ -37,6 +37,7 @@ interface TaskListProps {
   onFilterChange?: (filter: string) => void;
   loading?: boolean;
   error?: string | null;
+  readOnly?: boolean;
 }
 
 interface Filters {
@@ -194,6 +195,7 @@ const TaskList: React.FC<TaskListProps> = ({
   onFilterChange,
   loading = false,
   error = null,
+  readOnly = false,
 }) => {
   // Initialize filter state with all required properties
   const [filters, setFilters] = useState<Filters>({
@@ -518,7 +520,7 @@ const TaskList: React.FC<TaskListProps> = ({
             </TableCell>
           )}
           {visibleColumns.note && <TableCell className="max-w-xs truncate">{note || '-'}</TableCell>}
-          {visibleColumns.actions && (
+          {visibleColumns.actions && !readOnly && (
             <TableCell>
               <div className="flex items-center space-x-2">
                 <Button
@@ -543,6 +545,15 @@ const TaskList: React.FC<TaskListProps> = ({
                   <Trash2 className="h-4 w-4" />
                   <span className="sr-only">Delete</span>
                 </Button>
+              </div>
+            </TableCell>
+          )}
+          {readOnly && visibleColumns.actions && (
+            <TableCell>
+              <div className="flex items-center justify-center">
+                <Badge variant="secondary" className="text-xs">
+                  Read Only
+                </Badge>
               </div>
             </TableCell>
           )}

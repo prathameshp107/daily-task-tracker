@@ -35,7 +35,7 @@ const normalizeTask = (task: Partial<Task> | null | undefined): Task => {
     console.error('normalizeTask received null or undefined task');
     throw new Error('Task data is required');
   }
-  
+
   return {
     _id: task._id || '',
     id: task.id || task._id || '',
@@ -79,10 +79,10 @@ const getQuarterFromMonth = (monthName: string): string => {
     'January': 1, 'February': 2, 'March': 3, 'April': 4, 'May': 5, 'June': 6,
     'July': 7, 'August': 8, 'September': 9, 'October': 10, 'November': 11, 'December': 12
   };
-  
+
   const monthNumber = monthMap[monthName];
   if (!monthNumber) return 'Q1';
-  
+
   if (monthNumber >= 4 && monthNumber <= 6) return 'Q1'; // April-June
   if (monthNumber >= 7 && monthNumber <= 9) return 'Q2'; // July-September  
   if (monthNumber >= 10 && monthNumber <= 12) return 'Q3'; // October-December
@@ -131,8 +131,8 @@ export function DashboardContent() {
 
   // Calculate productivity metrics at component level
   const productivityMetrics = useProductivityMetrics(
-    analyticsTasksData, 
-    leaves, 
+    analyticsTasksData,
+    leaves,
     selectedQuarter !== 'all' ? selectedQuarter : selectedMonth,
     selectedQuarter !== 'all'
   );
@@ -191,7 +191,7 @@ export function DashboardContent() {
       if (task.month) {
         return task.month;
       }
-      
+
       // Check for date field (common in MongoDB tasks)
       if ('date' in task && (task as any).date) {
         const dateValue = (task as any).date;
@@ -202,7 +202,7 @@ export function DashboardContent() {
           return taskDate.toLocaleString('default', { month: 'long' });
         }
       }
-      
+
       // Check for createdAt field
       if (task.createdAt) {
         const createdDate = new Date(task.createdAt);
@@ -210,7 +210,7 @@ export function DashboardContent() {
           return createdDate.toLocaleString('default', { month: 'long' });
         }
       }
-      
+
       // Check for dueDate field
       if (task.dueDate) {
         const dueDate = new Date(task.dueDate);
@@ -218,7 +218,7 @@ export function DashboardContent() {
           return dueDate.toLocaleString('default', { month: 'long' });
         }
       }
-      
+
       // Fallback to current month
       return new Date().toLocaleString('default', { month: 'long' });
     };
@@ -376,8 +376,8 @@ export function DashboardContent() {
               </Select>
             </div>
             <div className="flex items-center gap-2">
-              <Select 
-                value={selectedMonth} 
+              <Select
+                value={selectedMonth}
                 onValueChange={(value) => {
                   setSelectedMonth(value);
                   // Reset quarter filter when month is selected
@@ -392,12 +392,12 @@ export function DashboardContent() {
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">All Months</SelectItem>
-                  {['January', 'February', 'March', 'April', 'May', 'June', 
+                  {['January', 'February', 'March', 'April', 'May', 'June',
                     'July', 'August', 'September', 'October', 'November', 'December'].map((month) => (
-                    <SelectItem key={month} value={month}>
-                      {month}
-                    </SelectItem>
-                  ))}
+                      <SelectItem key={month} value={month}>
+                        {month}
+                      </SelectItem>
+                    ))}
                 </SelectContent>
               </Select>
             </div>
@@ -482,7 +482,7 @@ export function DashboardContent() {
                           completed: currentTask.completed,
                           taskNumber: currentTask.taskNumber,
                         });
-                        
+
                         // Ensure the updated task has all necessary fields for UI display
                         const enhancedUpdatedTask = {
                           ...updatedTask,
@@ -492,14 +492,14 @@ export function DashboardContent() {
                           description: taskData.description,
                           type: taskData.taskType,
                         };
-                        
+
                         setTasks(prevTasks => prevTasks.map(t => t._id === currentTask._id ? enhancedUpdatedTask : t));
-                        
+
                         // Also update filtered tasks if the current task is in the filtered view
-                        setFilteredTasks(prevFilteredTasks => 
+                        setFilteredTasks(prevFilteredTasks =>
                           prevFilteredTasks.map(t => t._id === currentTask._id ? enhancedUpdatedTask : t)
                         );
-                        
+
                         setIsModalOpen(false);
                         setCurrentTask(undefined);
                         toast({
