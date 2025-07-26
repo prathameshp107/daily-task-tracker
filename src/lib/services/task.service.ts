@@ -142,7 +142,17 @@ export const taskService = {
   async createTask(taskData: CreateTaskDto): Promise<Task> {
     try {
       const response = await apiClient.post('/tasks', taskData);
-      return response.data.data;
+      
+      if (!response) {
+        throw new Error('No response received from API');
+      }
+      
+      if (!response.data) {
+        console.error('TaskService: No data in response:', response);
+        throw new Error('No task data received from API');
+      }
+      
+      return response.data;
     } catch (error) {
       console.error('Error creating task:', error);
       throw error;

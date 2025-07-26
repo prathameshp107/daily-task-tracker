@@ -30,32 +30,39 @@ interface TaskFormData {
   taskNumber: string; // Added taskNumber to the interface
 }
 
-const normalizeTask = (task: Partial<Task>): Task => ({
-  _id: task._id || '',
-  id: task.id || task._id || '',
-  title: task.title || '',
-  description: task.description || '',
-  projectId: task.projectId || '',
-  project: task.project || '',
-  status: task.status || 'pending',
-  type: task.type || '',
-  totalHours: task.totalHours || 0,
-  approvedHours: task.approvedHours || 0,
-  month: task.month || '',
-  note: task.note || '',
-  dueDate: task.dueDate || '',
-  estimatedHours: task.estimatedHours || 0,
-  actualHours: task.actualHours || 0,
-  labels: task.labels || [],
-  priority: task.priority || 'medium',
-  assigneeId: task.assigneeId || '',
-  reporterId: task.reporterId || '',
-  createdAt: task.createdAt || new Date().toISOString(),
-  updatedAt: task.updatedAt || new Date().toISOString(),
-  completed: task.completed || false,
-  assignedTo: task.assignedTo || '',
-  taskNumber: task.taskNumber || '',
-});
+const normalizeTask = (task: Partial<Task> | null | undefined): Task => {
+  if (!task) {
+    console.error('normalizeTask received null or undefined task');
+    throw new Error('Task data is required');
+  }
+  
+  return {
+    _id: task._id || '',
+    id: task.id || task._id || '',
+    title: task.title || '',
+    description: task.description || '',
+    projectId: task.projectId || '',
+    project: task.project || '',
+    status: task.status || 'pending',
+    type: task.type || '',
+    totalHours: task.totalHours || 0,
+    approvedHours: task.approvedHours || 0,
+    month: task.month || '',
+    note: task.note || '',
+    dueDate: task.dueDate || '',
+    estimatedHours: task.estimatedHours || 0,
+    actualHours: task.actualHours || 0,
+    labels: task.labels || [],
+    priority: task.priority || 'medium',
+    assigneeId: task.assigneeId || '',
+    reporterId: task.reporterId || '',
+    createdAt: task.createdAt || new Date().toISOString(),
+    updatedAt: task.updatedAt || new Date().toISOString(),
+    completed: task.completed || false,
+    assignedTo: task.assignedTo || '',
+    taskNumber: task.taskNumber || '',
+  };
+};
 
 // Type guards
 export function isLegacyTask(task: unknown): task is LegacyTask {
