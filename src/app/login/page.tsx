@@ -9,7 +9,7 @@ import { LoginForm } from '../../components/auth/login-form'
  * Handles user authentication and redirects authenticated users
  */
 export default function LoginPage() {
-  const { isAuthenticated, isLoading, shouldRedirect } = useRedirectIfAuthenticated('/dashboard')
+  const { isAuthenticated, isLoading, shouldRedirect } = useRedirectIfAuthenticated('/tasks')
 
   // Show loading state while checking authentication
   if (isLoading) {

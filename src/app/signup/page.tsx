@@ -8,7 +8,7 @@ import { SignupForm } from '../../components/auth/signup-form'
  * Handles user registration and redirects authenticated users
  */
 export default function SignupPage() {
-  // Placeholder: const { isAuthenticated, isLoading, shouldRedirect } = useRedirectIfAuthenticated('/dashboard')
+  // Placeholder: const { isAuthenticated, isLoading, shouldRedirect } = useRedirectIfAuthenticated('/tasks')
 
   // Placeholder: Show loading state while checking authentication
   // if (isLoading) {

@@ -17,7 +17,7 @@ interface AnalyticsExportData {
   leaves: string[];
 }
 
-export async function exportDashboardAndAnalyticsToExcel(
+export async function exportTasksAndAnalyticsToExcel(
   tasks: Task[],
   analytics: AnalyticsExportData,
   projects?: Array<{ _id: string; name: string; integrations?: Record<string, unknown> }>,
@@ -486,6 +486,6 @@ export async function exportDashboardAndAnalyticsToExcel(
 
   // Generate and download with custom filename
   const buffer = await workbook.xlsx.writeBuffer();
-  const filename = customFilename ? `${customFilename}.xlsx` : 'dashboard-analytics.xlsx';
+  const filename = customFilename ? `${customFilename}.xlsx` : 'tasks-analytics.xlsx';
   saveAs(new Blob([buffer]), filename);
 } 

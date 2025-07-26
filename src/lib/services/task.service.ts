@@ -64,7 +64,7 @@ export const taskService = {
 
       const response = await apiClient.get(`/tasks?${params.toString()}`);
       // Return only the array, not the whole response object
-      return response.data.data || [];
+      return response.data || [];
     } catch (error) {
       console.error('Error fetching tasks:', error);
       throw error;

@@ -9,7 +9,7 @@ This document outlines the routing structure and authentication flow for the Dai
 - `/` - Root page that redirects based on authentication status
 
 ### Protected Routes (Require Authentication)
-- `/dashboard` - Main dashboard with task management interface
+- `/tasks` - Main tasks page with task management interface
 - `/analytics` - Analytics and reporting page
 - `/settings` - Application settings page
 
@@ -17,16 +17,16 @@ This document outlines the routing structure and authentication flow for the Dai
 
 ### 1. Root Page (`/`)
 - Checks user authentication status
-- Redirects to `/dashboard` if authenticated
+- Redirects to `/tasks` if authenticated
 - Redirects to `/login` if not authenticated
 
 ### 2. Login Page (`/login`)
 - Displays login form for unauthenticated users
-- Redirects authenticated users to `/dashboard`
+- Redirects authenticated users to `/tasks`
 - Handles login form submission and authentication
 - Shows loading states and error messages
 
-### 3. Dashboard Page (`/dashboard`)
+### 3. Tasks Page (`/tasks`)
 - Main authenticated landing page
 - Requires authentication to access
 - Redirects unauthenticated users to `/login`
@@ -94,14 +94,14 @@ export default function ProtectedPage() {
 import { useRedirectIfAuthenticated } from '@/contexts'
 
 export default function LoginPage() {
-  const { isAuthenticated, isLoading } = useRedirectIfAuthenticated('/dashboard')
+  const { isAuthenticated, isLoading } = useRedirectIfAuthenticated('/tasks')
 
   if (isLoading) {
     return <LoadingSpinner />
   }
 
   if (isAuthenticated) {
-    return null // Will redirect to dashboard
+    return null // Will redirect to tasks
   }
 
   return <LoginForm />
@@ -112,7 +112,7 @@ export default function LoginPage() {
 
 ### After Login Success
 1. Check for stored redirect path in sessionStorage
-2. Redirect to stored path or default to `/dashboard`
+2. Redirect to stored path or default to `/tasks`
 3. Clear stored redirect path
 
 ### After Logout

@@ -63,9 +63,9 @@ export function Navbar() {
         {/* Desktop Navigation - Only show if authenticated */}
         {isAuthenticated && (
           <div className="hidden md:flex items-center gap-1">
-            <Link href="/dashboard">
+            <Link href="/tasks">
               <Button 
-                variant={pathname === "/dashboard" ? "default" : "ghost"} 
+                variant={pathname === "/tasks" ? "default" : "ghost"} 
                 size="sm"
                 className="flex items-center gap-2 px-3 py-1.5 h-9 transition-all hover:scale-[1.02]"
               >

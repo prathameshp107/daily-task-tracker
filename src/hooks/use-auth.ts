@@ -88,10 +88,10 @@ export function useRequireAuth(redirectTo?: string) {
 
 /**
  * Hook that redirects authenticated users away from auth pages
- * @param redirectTo Path to redirect to if authenticated (default: '/dashboard')
+ * @param redirectTo Path to redirect to if authenticated (default: '/tasks')
  * @returns Authentication status
  */
-export function useRedirectIfAuthenticated(redirectTo: string = '/dashboard') {
+export function useRedirectIfAuthenticated(redirectTo: string = '/tasks') {
   const { isAuthenticated, isLoading } = useAuth()
   const [shouldRedirect, setShouldRedirect] = useState(false)
   

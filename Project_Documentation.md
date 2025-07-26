@@ -63,7 +63,7 @@ src/
 │   │   ├── working-days/        # Working days configuration
 │   │   ├── integrations/        # External tool integrations
 │   │   └── user/                # User profile management
-│   ├── dashboard/               # Main dashboard page
+│   ├── tasks/                   # Main tasks page
 │   ├── analytics/               # Analytics dashboard page
 │   ├── projects/                # Projects management page
 │   ├── settings/                # Application settings page

@@ -55,7 +55,7 @@ export function RouteGuard({
           if (isAuthenticated) {
             setShouldRedirect(true)
             setTimeout(() => {
-              window.location.href = redirectTo || '/dashboard'
+              window.location.href = redirectTo || '/tasks'
             }, 100)
           }
           break
@@ -139,8 +139,8 @@ export function RouteGuard({
             <Button onClick={() => window.history.back()} variant="outline">
               Go Back
             </Button>
-            <Button onClick={() => window.location.href = isAuthenticated ? '/dashboard' : '/login'}>
-              {isAuthenticated ? 'Go to Dashboard' : 'Go to Login'}
+            <Button onClick={() => window.location.href = isAuthenticated ? '/tasks' : '/login'}>
+              {isAuthenticated ? 'Go to Tasks' : 'Go to Login'}
             </Button>
           </div>
         </div>

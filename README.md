@@ -22,7 +22,7 @@ A modern, feature-rich daily task and project management application built with 
 - **Jira Integration**: Connect projects to Jira boards and track issues
 - **Redmine Integration**: Link projects to Redmine for issue tracking
 - **Unified View**: Access all project information in one place
-- **Quick Access**: Direct links to project management tools from the dashboard
+- **Quick Access**: Direct links to project management tools from the tasks page
 
 ## 🎯 Task Management
 - **Create Tasks**: Add new tasks with comprehensive details including task ID, type, description, hours, project, and notes
@@ -153,7 +153,7 @@ A modern, feature-rich daily task and project management application built with 
 - Responsive design that works on all screen sizes
 
 ### How It Works
-1. The dashboard automatically calculates productivity based on your task data
+1. The analytics page automatically calculates productivity based on your task data
 2. Working hours are converted to days (8 hours = 1 day)
 3. Productivity is calculated as: (Work Days - Leaves) / Working Days in Month
 

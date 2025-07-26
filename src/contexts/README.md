@@ -136,10 +136,10 @@ Redirect authenticated users away from auth pages:
 import { useRedirectIfAuthenticated } from '@/contexts'
 
 function LoginPage() {
-  const { isAuthenticated, isLoading } = useRedirectIfAuthenticated('/dashboard')
+  const { isAuthenticated, isLoading } = useRedirectIfAuthenticated('/tasks')
   
   if (isLoading) return <div>Loading...</div>
-  if (isAuthenticated) return null // Will redirect to dashboard
+  if (isAuthenticated) return null // Will redirect to tasks
   
   return <LoginForm />
 }

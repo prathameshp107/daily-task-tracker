@@ -89,9 +89,10 @@ export function ProtectionExamples() {
                       Authenticated Required
                     </Badge>
                     <pre className="text-xs bg-gray-100 dark:bg-gray-800 p-3 rounded">
-{`<ProtectedRoute>
-  <DashboardContent />
-</ProtectedRoute>`}
+                      {`<ProtectedRoute>
+                           <TasksContent />
+                        </ProtectedRoute>`
+                      }
                     </pre>
                     <p className="text-sm text-muted-foreground">
                       Redirects to /login if user is not authenticated
@@ -150,7 +151,7 @@ export function ProtectionExamples() {
 </UnauthenticatedRoute>`}
                     </pre>
                     <p className="text-sm text-muted-foreground">
-                      Redirects to /dashboard if user is authenticated
+                      Redirects to /tasks if user is authenticated
                     </p>
                   </div>
                 </CardContent>
@@ -218,12 +219,12 @@ export function ProtectionExamples() {
                 </CardHeader>
                 <CardContent>
                   <pre className="text-sm bg-gray-100 dark:bg-gray-800 p-4 rounded">
-{`const ProtectedDashboard = withProtectedRoute(DashboardComponent, {
+{`const ProtectedTasks = withProtectedRoute(TasksComponent, {
   redirectTo: '/login',
   requireAuth: true
 })
 
-export default ProtectedDashboard`}
+export default ProtectedTasks`}
                   </pre>
                 </CardContent>
               </Card>
@@ -324,11 +325,11 @@ export default ProtectedDashboard`}
                 </CardHeader>
                 <CardContent>
                   <pre className="text-sm bg-gray-100 dark:bg-gray-800 p-4 rounded">
-{`// pages/dashboard.tsx
-export default function DashboardPage() {
+{`// pages/tasks.tsx
+export default function TasksPage() {
   return (
     <ProtectedRoute>
-      <DashboardContent />
+      <TasksContent />
     </ProtectedRoute>
   )
 }
@@ -336,7 +337,7 @@ export default function DashboardPage() {
 // pages/login.tsx
 export default function LoginPage() {
   return (
-    <UnauthenticatedRoute redirectTo="/dashboard">
+    <UnauthenticatedRoute redirectTo="/tasks">
       <LoginForm />
     </UnauthenticatedRoute>
   )

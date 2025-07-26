@@ -7,7 +7,7 @@ import { ProductivityMetrics } from "@/components/analytics/productivity-metrics
 import { ProductivityTrends } from "@/components/analytics/productivity-trends";
 import { AnalyticsSkeleton } from "@/components/analytics/analytics-skeleton";
 import { useProductivityMetrics } from "@/hooks/useProductivityMetrics";
-import { exportDashboardAndAnalyticsToExcel } from '@/lib/export/excel';
+import { exportTasksAndAnalyticsToExcel } from '@/lib/export/excel';
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Calendar } from "lucide-react";
@@ -248,7 +248,7 @@ export default function AnalyticsPage() {
       const projects = await projectService.getProjects();
       
       // Export with projects data for integration links
-      await exportDashboardAndAnalyticsToExcel(tasks, analyticsData, projects);
+      await exportTasksAndAnalyticsToExcel(tasks, analyticsData, projects);
       
       toast({
         title: 'Export Successful',

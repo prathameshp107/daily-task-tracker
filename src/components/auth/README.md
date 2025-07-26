@@ -47,16 +47,16 @@ Main component for protecting authenticated routes with comprehensive error hand
 ```tsx
 import { ProtectedRoute } from '@/components/auth'
 
-function DashboardPage() {
+function TasksPage() {
   return (
     <ProtectedRoute>
-      <DashboardContent />
+      <TasksContent />
     </ProtectedRoute>
   )
 }
 
 // Or as HOC
-const ProtectedDashboard = withProtectedRoute(DashboardContent)
+const ProtectedTasks = withProtectedRoute(TasksContent)
 ```
 
 #### RouteGuard
@@ -83,16 +83,16 @@ function MyPage() {
 // Convenience components
 function LoginPage() {
   return (
-    <UnauthenticatedRoute redirectTo="/dashboard">
+    <UnauthenticatedRoute redirectTo="/tasks">
       <LoginForm />
     </UnauthenticatedRoute>
   )
 }
 
-function DashboardPage() {
+function TasksPage() {
   return (
     <AuthenticatedRoute>
-      <DashboardContent />
+      <TasksContent />
     </AuthenticatedRoute>
   )
 }

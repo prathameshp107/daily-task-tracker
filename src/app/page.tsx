@@ -13,8 +13,8 @@ export default function Home() {
   useEffect(() => {
     if (!isLoading) {
       if (isAuthenticated) {
-        // Redirect to dashboard if authenticated
-        window.location.href = '/dashboard'
+        // Redirect to tasks if authenticated
+        window.location.href = '/tasks'
       } else {
         // Redirect to login if not authenticated
         window.location.href = '/login'

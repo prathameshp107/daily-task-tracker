@@ -10,7 +10,7 @@ import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Download, Calendar, FileSpreadsheet } from 'lucide-react';
 import { useToast } from '@/components/ui/use-toast';
 import { taskService, leaveService, projectService } from '@/lib/services';
-import { exportDashboardAndAnalyticsToExcel } from '@/lib/export/excel';
+import { exportTasksAndAnalyticsToExcel } from '@/lib/export/excel';
 import { Task as MainTask } from '@/lib/types';
 import { Task as AnalyticsTask } from '@/lib/analytics/types';
 import { calculateProductivityMetrics } from '@/lib/utils/productivity-metrics';
@@ -234,7 +234,7 @@ export function ExportDialog({ allTasks, allLeaves }: ExportDialogProps) {
       }
 
       // Export with filtered data and custom filename
-      await exportDashboardAndAnalyticsToExcel(analyticsTasksData, analyticsData, projects, filename);
+      await exportTasksAndAnalyticsToExcel(analyticsTasksData, analyticsData, projects, filename);
 
       toast({
         title: 'Export Successful',

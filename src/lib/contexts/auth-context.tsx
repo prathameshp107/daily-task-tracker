@@ -45,7 +45,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     try {
       const { user, token } = await authService.login({ email, password });
       setUser(user);
-      router.push('/dashboard');
+      router.push('/tasks');
     } catch (error) {
       console.error('Login failed:', error);
       throw error;
@@ -56,7 +56,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     try {
       const { user, token } = await authService.register({ name, email, password });
       setUser(user);
-      router.push('/dashboard');
+      router.push('/tasks');
     } catch (error) {
       console.error('Registration failed:', error);
       throw error;
